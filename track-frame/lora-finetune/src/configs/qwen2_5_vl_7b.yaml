@@ -1,0 +1,38 @@
+# LoRA SFT config — Qwen2.5-VL-7B-Instruct (FRAME track).
+# Adding another <=14B VLM = copy this file and change base_path / pixel caps;
+# target_modules auto-discover (below) keeps it architecture-agnostic.
+
+base_path: os-models/Qwen2.5-VL-7B-Instruct   # relative to repo root
+model_name: Qwen2.5-VL-7B-Instruct-lora
+dtype: bfloat16
+attn_implementation: sdpa                      # flash-attn unavailable on aarch64
+trust_remote_code: false
+
+# Image-token budget (same cap at train + inference; within the 48 GB / 5 s/Q test budget).
+min_pixels: null
+max_pixels: 602112                             # ~768x784, matches the zero-shot baseline cap
+
+# Trainable scope: LoRA on the LLM (attn+MLP) AND the vision encoder; the
+# multimodal projector ("merger") is fully trained.
+lora:
+  r: 16
+  alpha: 32
+  dropout: 0.05
+  target_modules: null                         # null -> auto-discover all nn.Linear leaf names...
+  exclude_name_contains: [lm_head, merger, embed_tokens]   # ...except these (head + projector + embeds)
+  modules_to_save: [merger]                     # fully train the vision->LLM projector
+
+train:
+  epochs: 30
+  per_device_batch_size: 1                       # 1 image/step -> no mismatched-grid collation; scale via accum
+  grad_accum: 16                                 # effective batch 16
+  learning_rate: 1.0e-4
+  lr_scheduler: cosine
+  warmup_ratio: 0.03
+  weight_decay: 0.0
+  max_grad_norm: 1.0
+  max_new_tokens: 64
+  logging_steps: 10
+  save_strategy: epoch                           # checkpoint per epoch -> eval each on public test
+  dataloader_num_workers: 4
+  seed: 42

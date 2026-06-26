@@ -1,0 +1,33 @@
+# LoRA SFT config — SmolVLM2-2.2B-Instruct (FRAME track). Projector auto-detected
+# (connector). No pixel cap (SmolVLM/Idefics3 processor has no max_pixels kwarg).
+base_path: os-models/SmolVLM2-2.2B-Instruct
+model_name: SmolVLM2-2.2B-lora
+dtype: bfloat16
+attn_implementation: sdpa
+trust_remote_code: false
+
+min_pixels: null
+max_pixels: null
+
+lora:
+  r: 16
+  alpha: 32
+  dropout: 0.05
+  target_modules: null
+  exclude_name_contains: [lm_head, embed_tokens]
+  modules_to_save: null
+
+train:
+  epochs: 30
+  per_device_batch_size: 1
+  grad_accum: 16
+  learning_rate: 1.0e-4
+  lr_scheduler: cosine
+  warmup_ratio: 0.03
+  weight_decay: 0.0
+  max_grad_norm: 1.0
+  max_new_tokens: 64
+  logging_steps: 10
+  save_strategy: epoch
+  dataloader_num_workers: 4
+  seed: 42

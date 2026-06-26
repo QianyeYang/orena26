@@ -1,0 +1,64 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>ORena FOCUS — prediction visualiser</title>
+  <link rel="stylesheet" href="/static/style.css" />
+</head>
+<body>
+  <header id="topbar">
+    <div class="row primary">
+      <strong class="brand">ORena&nbsp;FOCUS</strong>
+      <label>Track/split
+        <select id="splitSel"></select>
+      </label>
+      <div class="views">
+        <button id="viewMatrix" class="viewbtn active">Matrix</button>
+        <button id="viewCase" class="viewbtn">Case</button>
+      </div>
+      <input id="search" type="search" placeholder="search question text…" />
+      <span id="counts" class="counts"></span>
+    </div>
+
+    <div class="row filters">
+      <label>Format <select id="fmtSel"><option value="">all</option></select></label>
+      <label>Capability <select id="capSel"><option value="">all</option></select></label>
+      <label>Video <select id="vidSel"><option value="">all</option></select></label>
+      <label>OOD <select id="oodSel"><option value="">all</option><option value="1">yes</option><option value="0">no</option></select></label>
+      <label>Clinical <select id="clinSel"><option value="">all</option><option value="1">yes</option><option value="0">no</option></select></label>
+      <label>Agreement
+        <select id="agreeSel">
+          <option value="">all</option>
+          <option value="all_correct">all correct</option>
+          <option value="all_wrong">all wrong</option>
+          <option value="disagree">models disagree</option>
+          <option value="focus_wrong">focused model wrong</option>
+        </select>
+      </label>
+      <label>Focus model <select id="focusSel"><option value="">—</option></select></label>
+    </div>
+
+    <div class="row models">
+      <span class="mlabel">Models</span>
+      <button id="modelAll" class="mini">all</button>
+      <button id="modelNone" class="mini">none</button>
+      <span id="modelChips"></span>
+    </div>
+  </header>
+
+  <main>
+    <section id="matrixView"><div id="matrixWrap"></div></section>
+    <section id="caseView" class="hidden">
+      <div id="caseNav">
+        <button id="prevCase">← prev</button>
+        <span id="casePos"></span>
+        <button id="nextCase">next →</button>
+      </div>
+      <div id="caseBody"></div>
+    </section>
+  </main>
+
+  <script src="/static/app.js"></script>
+</body>
+</html>
