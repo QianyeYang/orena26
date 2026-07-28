@@ -21,7 +21,8 @@ The environment, ALWAYS using conda env "orena", don't mixup with other envs
     ./submissions: place to generate submission dockers
     ./tmp: temporary folder for one-time use scripts, code, docs, any materials
     ./os-models: stores the opensource VLMs and LLMs
-    ./result-summary.md: stores the techinical numerical results of each methods & baselines, ALWAYS need to keep it clean and well organised, rather than just appending new results in it.
+    ./result-summary/: stores track- and experiment-specific numerical reports with dataset and capability distributions; keep the indexes clean and organised.
+    ./result-summary.md: historical cross-track snapshot retained for provenance.
 
 And for each of the ./track-xxxx, the sub directories are orgainsed as follows:
     
@@ -33,9 +34,13 @@ And for each of the ./track-xxxx, the sub directories are orgainsed as follows:
     
 
 ## Data
-Videos (161 GB, 30 .avi files): ./data/focus/heico/videos/
+Videos:
+- HeiCo (30 files, 149.6 GiB): ./data/focus/heico/videos/
+- LapChole (170 files, 90.3 GiB): ./data/focus/lapchole/videos/
 
-VQA annotations (parquet): ./data/parquet/{frame,segment,procedure}/{train,test}/0000.parquet
+VQA annotations:
+- HeiCo: ./data/parquet/{frame,segment,procedure}/{train,test}/0000.parquet
+- LapChole: ./data/parquet/lapchole/{frame,segment,procedure}/{train,test}/0000.parquet
 - RULE: always load annotations with pd.read_parquet() directly from ./data/parquet/, NOT via load_dataset() — parquet is ~160x faster (4ms vs 650ms per load)
-- Row counts: frame 4000/2000, segment 4000/2000, procedure 2000/1000 (train/test)
-- Content verified identical to HF Arrow cache
+- HeiCo rows: frame 8000/4000, segment 8000/4000, procedure 4000/2000 (train/test)
+- LapChole rows: frame 5748/2252, segment 5746/2254, procedure 2873/1127 (train/test)

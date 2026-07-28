@@ -13,10 +13,12 @@ The whole body is guarded: an eval failure logs a warning and training continues
 
 from __future__ import annotations
 
+import json
 import logging
 import time
 from pathlib import Path
 
+import numpy as np
 import pandas as pd
 import torch
 from focus import save_items
@@ -50,7 +52,9 @@ class PerEpochEvalCallback(TrainerCallback):
         frames_folder: str = "frames",
         system_prompt: str = P.SYSTEM_PROMPT,
         max_new_tokens: int = 64,
-        eval_limit: int | None = None,
+        datasets: tuple[str, ...] | list[str] = ("heico",),
+        eval_n: int | None = None,
+        seed: int = 42,
         model_name: str = "lora",
     ) -> None:
         self.processor = processor
@@ -60,17 +64,38 @@ class PerEpochEvalCallback(TrainerCallback):
         self.system_prompt = system_prompt
         self.max_new_tokens = max_new_tokens
         self.model_name = model_name
+        self.datasets = tuple(datasets)
 
-        rows = data.read_parquet(track, split).to_dict("records")
-        if eval_limit:
-            rows = rows[:eval_limit]
-        self.rows = rows
-        self.reqs = [data.row_to_request(r) for r in rows]
-        self.refs = [data.row_to_reference(r) for r in rows]
+        candidates: list[tuple[str, dict]] = []
+        for dataset in self.datasets:
+            candidates.extend(
+                (dataset, row)
+                for row in data.read_parquet(track, split, dataset).to_dict("records")
+            )
+        if eval_n and eval_n < len(candidates):
+            rng = np.random.default_rng(seed)
+            keep = sorted(rng.choice(len(candidates), size=eval_n, replace=False).tolist())
+            candidates = [candidates[i] for i in keep]
+
+        self.groups: dict[str, dict] = {}
+        subset_ids = []
+        for dataset in self.datasets:
+            rows = [row for row_dataset, row in candidates if row_dataset == dataset]
+            reqs = [data.row_to_request(row) for row in rows]
+            self.groups[dataset] = {
+                "rows": rows,
+                "reqs": reqs,
+                "refs": [data.row_to_reference(row) for row in rows],
+            }
+            subset_ids.extend({"dataset": dataset, "qID": req.qID} for req in reqs)
         self._evaluator = None  # lazy: load judge only on first eval
         self.metrics_csv = self.out / "epoch_metrics.csv"
-        log.info("per-epoch eval armed: %d %s/%s rows, judge=%s",
-                 len(self.rows), track, split, judge_model)
+        (self.out / "eval_subset_qids.json").write_text(json.dumps(subset_ids, indent=2))
+        counts = {dataset: len(group["rows"]) for dataset, group in self.groups.items()}
+        log.info(
+            "per-epoch eval armed: %s %s/%s rows (seed=%d), judge=%s",
+            counts, track, split, seed, judge_model,
+        )
 
     def _evaluator_lazy(self):
         if self._evaluator is None:
@@ -80,16 +105,18 @@ class PerEpochEvalCallback(TrainerCallback):
             )
         return self._evaluator
 
-    def _infer(self, model) -> list:
+    def _infer(self, model, dataset: str, group: dict) -> tuple[list, list]:
         from infer import generate_answer
 
         device = next(model.parameters()).device
         records, responses = [], []
         n_err = 0
         t0 = time.time()
-        for i, (req, row) in enumerate(zip(self.reqs, self.rows)):
+        for i, (req, row) in enumerate(zip(group["reqs"], group["rows"])):
             fmt = row["answer_format"]
-            img = frames.request_frame_paths(req, frames_folder=self.frames_folder)[0]
+            img = frames.request_frame_paths(
+                req, frames_folder=self.frames_folder, dataset=dataset
+            )[0]
             instr, opts = P.build_instruction(req.question, fmt)
             raw, lat, err = "", 0.0, ""
             if not img.exists():
@@ -106,7 +133,8 @@ class PerEpochEvalCallback(TrainerCallback):
             responses.append(resp)
             n_err += int(bool(err))
             records.append({
-                "sample_id": req.qID, "model_name": self.model_name, "question": req.question,
+                "dataset": dataset, "sample_id": req.qID,
+                "model_name": self.model_name, "question": req.question,
                 "answer": str(row["answer"]), "answer_format": fmt,
                 "primary_capability": str(row["primary_capability"]),
                 "secondary_capabilities": _sec_caps(row.get("secondary_capabilities")),
@@ -117,8 +145,14 @@ class PerEpochEvalCallback(TrainerCallback):
                 "prediction": resp.content, "latency_sec": lat, "error": err,
             })
             if i % 200 == 0:
-                log.info("  infer %d/%d fmt=%s raw=%r", i + 1, len(self.reqs), fmt, raw[:32])
-        log.info("  inference done: %d rows %.1fs errors=%d", len(records), time.time() - t0, n_err)
+                log.info(
+                    "  %s infer %d/%d fmt=%s raw=%r",
+                    dataset, i + 1, len(group["reqs"]), fmt, raw[:32],
+                )
+        log.info(
+            "  %s inference done: %d rows %.1fs errors=%d",
+            dataset, len(records), time.time() - t0, n_err,
+        )
         return records, responses
 
     def on_epoch_end(self, args, state, control, model=None, **kwargs):
@@ -139,8 +173,11 @@ class PerEpochEvalCallback(TrainerCallback):
             except Exception:  # noqa: BLE001
                 pass
 
-            log.info("[epoch %d] test inference (n=%d)...", epoch, len(self.reqs))
-            records, responses = self._infer(model)
+            eval_outputs = {}
+            total_rows = sum(len(group["rows"]) for group in self.groups.values())
+            log.info("[epoch %d] test-subset inference (n=%d)...", epoch, total_rows)
+            for dataset, group in self.groups.items():
+                eval_outputs[dataset] = self._infer(model, dataset, group)
 
             # restore training state
             try:
@@ -159,25 +196,52 @@ class PerEpochEvalCallback(TrainerCallback):
 
             epdir = self.out / f"eval_epoch_{epoch}"
             epdir.mkdir(parents=True, exist_ok=True)
-            save_items(responses, epdir / "responses.json")
-            pd.DataFrame(records).to_parquet(epdir / "predictions.parquet", index=False)
+            metrics = {}
+            for dataset, group in self.groups.items():
+                records, responses = eval_outputs[dataset]
+                dataset_dir = epdir / dataset
+                dataset_dir.mkdir(parents=True, exist_ok=True)
+                save_items(responses, dataset_dir / "responses.json")
+                pd.DataFrame(records).to_parquet(
+                    dataset_dir / "predictions.parquet", index=False
+                )
 
-            overall = float("nan")
-            try:
-                ev = self._evaluator_lazy()
-                _, sum_df = ev.run(self.reqs, self.refs, responses, output_dir=str(epdir / "eval"))
-                ov = sum_df[sum_df.level == "overall"]
-                if not ov.empty:
-                    overall = float(ov.iloc[0]["accuracy"])
-                log.info("[epoch %d] OVERALL acc = %.4f -> %s", epoch, overall, epdir)
-            except Exception as e:  # noqa: BLE001 — keep responses for offline scoring
-                log.warning("[epoch %d] judge eval failed: %s (responses saved)", epoch, e)
+                accuracy = float("nan")
+                try:
+                    ev = self._evaluator_lazy()
+                    _, sum_df = ev.run(
+                        group["reqs"], group["refs"], responses,
+                        output_dir=str(dataset_dir / "eval"),
+                    )
+                    ov = sum_df[sum_df.level == "overall"]
+                    if not ov.empty:
+                        accuracy = float(ov.iloc[0]["accuracy"])
+                    log.info(
+                        "[epoch %d] %s acc = %.4f -> %s",
+                        epoch, dataset, accuracy, dataset_dir,
+                    )
+                except Exception as e:  # noqa: BLE001 — retain responses for offline scoring
+                    log.warning(
+                        "[epoch %d] %s judge eval failed: %s (responses saved)",
+                        epoch, dataset, e,
+                    )
+                metrics[dataset] = accuracy
+
+            valid = [value for value in metrics.values() if np.isfinite(value)]
+            overall = float(np.mean(valid)) if valid else float("nan")
+            log.info("[epoch %d] mean dataset accuracy = %.4f", epoch, overall)
 
             header = not self.metrics_csv.exists()
             with open(self.metrics_csv, "a") as f:
                 if header:
-                    f.write("epoch,overall_acc,global_step\n")
-                f.write(f"{epoch},{overall},{state.global_step}\n")
+                    f.write(
+                        "epoch,overall_acc,"
+                        + ",".join(f"{dataset}_acc" for dataset in self.datasets)
+                        + ",global_step\n"
+                    )
+                values = ",".join(str(metrics.get(dataset, float("nan")))
+                                  for dataset in self.datasets)
+                f.write(f"{epoch},{overall},{values},{state.global_step}\n")
         except Exception as e:  # noqa: BLE001 — never let eval kill training
             log.warning("[epoch %d] per-epoch eval errored (training continues): %s", epoch, e)
             try:  # best effort to leave the model trainable

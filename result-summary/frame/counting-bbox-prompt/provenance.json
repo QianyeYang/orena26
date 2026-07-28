@@ -1,0 +1,15 @@
+{
+  "baseline_root": "/datasets/engs2732/orena/track-frame/lora-finetune/logs/full-test-comparison/new-epoch30",
+  "experiment_root": "/datasets/engs2732/orena/track-frame/counting-bbox-prompt/logs/bbox-json-epoch30-20260727",
+  "datasets": [
+    "heico",
+    "lapchole"
+  ],
+  "counting_rows": 2094,
+  "bootstrap": {
+    "unit": "video",
+    "samples": 10000,
+    "seed": 42,
+    "interval": "percentile 95%"
+  }
+}

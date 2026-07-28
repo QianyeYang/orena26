@@ -1,0 +1,8 @@
+dataset,structured_output_status,count,schema_valid,bbox_correct,rate,bbox_micro_accuracy
+heico,json,1319,1319,715,0.9947209653092006,0.5420773313115997
+heico,invalid_json,1,False,0,0.0007541478129713424,0.0
+heico,recovered_bbox_regex,1,False,0,0.0007541478129713424,0.0
+heico,json_partial_invalid_objects,5,0,0,0.003770739064856712,0.0
+lapchole,json,757,757,272,0.9856770833333334,0.35931307793923384
+lapchole,json_partial_invalid_objects,5,0,0,0.006510416666666667,0.0
+lapchole,invalid_json,6,0,0,0.0078125,0.0

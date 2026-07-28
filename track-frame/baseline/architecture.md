@@ -53,9 +53,9 @@ Outputs under `track-frame/baseline/logs/resp_<split>/`.
 ## Known limitations / notes
 - Local `test` = Sigmoid Resection only (train = Procto + Rectal): a generalisation
   probe, not in-distribution. Interpret the baseline number accordingly.
-- Multi-label fo_class answers are unscorable by the stock format → single-label
-  only (see `docs/issues-tbd.md`).
-- FO class list = all 9 canonical names (`FOType.names()`), not just the 7 in train.
+- Multi-label `fo_class` answers are comma-separated sets; the adapter must
+  preserve every recognized name.
+- Use `FOType.names()` locally and runtime definitions in submissions.
 - Eval accuracy is a macro-mean over the 10 test videos with bootstrap CIs.
 
 ## Candidates to try next (keep updated)

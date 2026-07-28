@@ -19,14 +19,30 @@ from focus import Reference, Request, save_items
 from focus.data.formats import ts_to_seconds
 from focus.taxonomy import Capability
 
-from .paths import parquet_path
+from .paths import DATASET, DATASETS, parquet_path
 
 logger = logging.getLogger(__name__)
 
 
-def read_parquet(track: str, split: str) -> pd.DataFrame:
+def read_parquet(track: str, split: str, dataset: str = DATASET) -> pd.DataFrame:
     """Load a track/split annotation parquet directly (fast path, no HF)."""
-    return pd.read_parquet(parquet_path(track, split))
+    return pd.read_parquet(parquet_path(track, split, dataset))
+
+
+def read_parquets(
+    track: str,
+    split: str,
+    datasets: tuple[str, ...] | list[str] = DATASETS,
+) -> pd.DataFrame:
+    """Load and concatenate dataset shards, tagging every row with ``_dataset``."""
+    if not datasets:
+        raise ValueError("at least one dataset is required")
+    frames = []
+    for dataset in datasets:
+        frame = read_parquet(track, split, dataset).copy()
+        frame["_dataset"] = dataset
+        frames.append(frame)
+    return pd.concat(frames, ignore_index=True)
 
 
 def _capability(code) -> Capability:
@@ -75,22 +91,31 @@ def row_to_reference(row: dict) -> Reference:
     )
 
 
-def load_split(track: str, split: str) -> tuple[list[Request], list[Reference]]:
+def load_split(
+    track: str,
+    split: str,
+    dataset: str = DATASET,
+) -> tuple[list[Request], list[Reference]]:
     """Return ``(requests, references)`` for a track/split, in parquet order."""
-    df = read_parquet(track, split)
+    df = read_parquet(track, split, dataset)
     reqs, refs = [], []
     for row in df.to_dict("records"):
         reqs.append(row_to_request(row))
         refs.append(row_to_reference(row))
-    logger.info("loaded %s/%s: %d samples", track, split, len(reqs))
+    logger.info("loaded %s/%s/%s: %d samples", dataset, track, split, len(reqs))
     return reqs, refs
 
 
-def save_split(track: str, split: str, out_dir: str | Path) -> tuple[list[Request], list[Reference]]:
+def save_split(
+    track: str,
+    split: str,
+    out_dir: str | Path,
+    dataset: str = DATASET,
+) -> tuple[list[Request], list[Reference]]:
     """Load a split and write ``requests.json`` + ``references.json`` to ``out_dir``."""
     out = Path(out_dir)
     out.mkdir(parents=True, exist_ok=True)
-    reqs, refs = load_split(track, split)
+    reqs, refs = load_split(track, split, dataset)
     save_items(reqs, out / "requests.json")
     save_items(refs, out / "references.json")
     logger.info("wrote %s and %s", out / "requests.json", out / "references.json")

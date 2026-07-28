@@ -3,16 +3,13 @@
 Deferred decisions from the FRAME baseline plan review (2026-06-19).
 Each: context · current decision · what to revisit.
 
-## 4. Multi-label fo_class answers are unscorable by the stock scorer
-- Some `fo_class` answers list >1 object, e.g. `"Clip, Sponge"` (27 train / 5 test rows).
-- The official `FOClass` format accepts only ONE class name or `"none"`. On a comma
-  answer it raises; the `Evaluator` reads the *reference* through the format too, so
-  even the correct reference fails parsing and the question is auto-marked wrong.
-- Impact: these questions are unwinnable with the stock scorer; small (~0.3% of test)
-  but caps the fo_class ceiling.
-- **Current decision:** leave as-is (challenge server uses the stock format anyway).
-- **Revisit:** confirm how the official leaderboard scores multi-label FO; add a
-  multi-label FOClass variant only if it matches server behaviour.
+## 4. Resolved: multi-label fo_class answers
+- The current official `FOClass` parser accepts one or more comma-separated
+  canonical names and compares them as an order- and duplicate-insensitive set.
+- `src.adapter.normalize_fo_class()` preserves every recognized class and masks
+  overlapping names such as `Specimen Bag`/`Specimen`.
+- Adapter contract tests cover multiple, overlapping, duplicate, and
+  runtime-defined class names. Do not reintroduce first-match reduction.
 
 ## 7. Score breakdown granularity
 - `focus` `Evaluator` reports accuracy by capability AND by answer_format *separately*,
@@ -36,9 +33,7 @@ Each: context · current decision · what to revisit.
   3) paste into `.env` (`HF_TOKEN=hf_...`). Data already downloaded, so nothing blocked.
 - Urgency: hygiene, not emergency. Definitely rotate if it was write-scoped.
 
-## 9. Foreign-object class list (7 vs 9 vs more)
-- `focus` defines 9 canonical FO classes (adds Gallstone, Mesh); train data shows only
-  7; the package notes the test phase may introduce more (provided via metadata).
-- **Current decision:** use the full 9 classes (`FOType.names()`) in prompts now.
-- **Revisit:** adjust the class list when test-phase metadata arrives; check if the
-  hidden test adds new types.
+## 9. Foreign-object class list
+- Use `FOType.names()` for current local evaluation.
+- Submission inference must load the runtime definitions because hidden batches
+  may introduce additional types.

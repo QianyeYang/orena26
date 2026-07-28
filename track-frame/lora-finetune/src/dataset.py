@@ -27,19 +27,27 @@ class FrameSFTDataset(Dataset):
         self,
         track: str = "frame",
         split: str = "train",
+        datasets: tuple[str, ...] | list[str] = ("heico",),
         frames_folder: str = "frames",
         limit: int | None = None,
     ) -> None:
-        rows = data.read_parquet(track, split).to_dict("records")
+        rows = data.read_parquets(track, split, datasets).to_dict("records")
         if limit:
             rows = rows[:limit]
         self.examples: list[dict] = []
         for row in rows:
             req = data.row_to_request(row)
-            img = frames.request_frame_paths(req, frames_folder=frames_folder)[0]
+            img = frames.request_frame_paths(
+                req, frames_folder=frames_folder, dataset=row["_dataset"]
+            )[0]
             instr, _ = P.build_instruction(req.question, row["answer_format"])
             self.examples.append(
-                {"image_path": str(img), "instruction": instr, "answer": str(row["answer"])}
+                {
+                    "dataset": row["_dataset"],
+                    "image_path": str(img),
+                    "instruction": instr,
+                    "answer": str(row["answer"]),
+                }
             )
 
     def __len__(self) -> int:

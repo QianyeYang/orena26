@@ -4,6 +4,15 @@ Config-driven LoRA SFT harness for VLMs ≤14B. First target: **Qwen2.5-VL-7B**
 (beats the recorded zero-shot baseline of 0.305). Other ≤14B models are added by
 dropping a new YAML into `src/configs/` — the trainer/runner are model-agnostic.
 
+## Both-dataset official rerun
+
+`configs/qwen3_vl_4b_both_official.yaml` starts a fresh adapter from the
+original `Qwen3-VL-4B-Instruct` weights and trains on all official HeiCo and
+LapChole train rows (13,748 total). Official test rows remain evaluation-only.
+The B200 recipe keeps the effective batch at 16 with batch size 16, saves every
+epoch, evaluates a seeded 1,000-row test subset separately by dataset, and
+writes to `logs/Qwen3-VL-4B-Instruct-both-official/`.
+
 ## Method
 - **Task:** multi-task SFT over *all* FRAME answer formats (fo_class, open_ended,
   number, multiple_choice, binary), matching the evaluation. One frame per question.

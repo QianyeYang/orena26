@@ -1,0 +1,3 @@
+dataset,count,both_correct,bbox_only_correct,direct_only_correct,both_wrong
+heico,1326,567,148,129,482
+lapchole,768,178,94,126,370

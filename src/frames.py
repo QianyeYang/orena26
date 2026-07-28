@@ -40,6 +40,14 @@ logger = logging.getLogger(__name__)
 BASE_FPS: int = DATASET_BASE_FPS[DATASET]  # 25 for heico
 
 
+def dataset_base_fps(dataset: str = DATASET) -> int:
+    """Return the official native FPS used for annotation-to-frame indexing."""
+    try:
+        return int(DATASET_BASE_FPS[dataset])
+    except KeyError as exc:
+        raise ValueError(f"no official base FPS for dataset {dataset!r}") from exc
+
+
 def frame_index(seconds: float, base_fps: int = BASE_FPS) -> int:
     """Absolute source-frame index for a timestamp (seconds)."""
     return round(seconds * base_fps)
@@ -53,6 +61,15 @@ def _indices_for(start_s: float, end_s: float, base_fps: int, stride: int) -> li
     return list(range(sf, ef + 1, max(stride, 1)))
 
 
+def indices_for_request(request, stride: int = 1, base_fps: int = BASE_FPS) -> list[int]:
+    """Absolute frame indices on the extraction grid for one ``Request`` window.
+
+    Public wrapper over the internal grid so inference-time frame selection
+    (``src.videovqa``) and extraction share one definition by construction.
+    """
+    return _indices_for(request.start_time, request.end_time, base_fps, stride)
+
+
 def needed_frames(requests, base_fps: int = BASE_FPS, stride: int = 1) -> dict[str, list[int]]:
     """Map ``videoID -> sorted unique absolute frame indices`` needed by ``requests``."""
     out: dict[str, set[int]] = defaultdict(set)
@@ -62,14 +79,19 @@ def needed_frames(requests, base_fps: int = BASE_FPS, stride: int = 1) -> dict[s
 
 
 def request_frame_paths(
-    request, frames_folder: str = "frames", base_fps: int = BASE_FPS, stride: int = 1
+    request,
+    frames_folder: str = "frames",
+    base_fps: int | None = None,
+    stride: int = 1,
+    dataset: str = DATASET,
 ) -> list[Path]:
     """Resolve the on-disk frame path(s) for one ``Request`` (single path for FRAME)."""
-    root = _frames_root(frames_folder)
+    fps = base_fps if base_fps is not None else dataset_base_fps(dataset)
+    root = _frames_root(frames_folder, dataset)
     stem = Path(request.videoID).stem
     return [
         root / stem / f"frame{i:07d}.jpg"
-        for i in _indices_for(request.start_time, request.end_time, base_fps, stride)
+        for i in _indices_for(request.start_time, request.end_time, fps, stride)
     ]
 
 
@@ -145,6 +167,7 @@ def _extract_with_retry(task, retries: int = 3, delay: float = 1.0) -> tuple[str
 def extract_frames(
     needed: dict[str, list[int]],
     frames_folder: str = "frames",
+    dataset: str = DATASET,
     resolution: tuple[int, int] | None = None,
     jpeg_quality: int = 95,
     skip_existing: bool = True,
@@ -161,8 +184,8 @@ def extract_frames(
     threads hits the cap). Use ``max_workers > 1`` only on SLURM compute nodes;
     it is fast enough single-stream (~0.03-0.07 s/frame, whole frame track ~6 min).
     """
-    vdir = _video_dir()
-    root = _frames_root(frames_folder)
+    vdir = _video_dir(dataset)
+    root = _frames_root(frames_folder, dataset)
     tasks = [
         (vdir / vid, root / Path(vid).stem, idxs, resolution, jpeg_quality, skip_existing)
         for vid, idxs in needed.items()
@@ -191,6 +214,7 @@ def extract_frames(
 def extract_split(
     track: str,
     split: str,
+    dataset: str = DATASET,
     frames_folder: str = "frames",
     stride: int = 1,
     resolution: tuple[int, int] | None = None,
@@ -200,8 +224,8 @@ def extract_split(
     """Convenience: load a track/split and extract exactly its referenced frames."""
     from .data import load_split
 
-    reqs, _ = load_split(track, split)
-    needed = needed_frames(reqs, stride=stride)
+    reqs, _ = load_split(track, split, dataset)
+    needed = needed_frames(reqs, base_fps=dataset_base_fps(dataset), stride=stride)
     total = sum(len(v) for v in needed.values())
     logger.info(
         "extract_split %s/%s: %d videos, %d unique frames (stride=%d)",
@@ -210,6 +234,7 @@ def extract_split(
     return extract_frames(
         needed,
         frames_folder=frames_folder,
+        dataset=dataset,
         resolution=resolution,
         max_workers=max_workers,
         skip_existing=skip_existing,
@@ -223,6 +248,7 @@ def _main() -> None:
         description="Extract only the frames referenced by a track/split."
     )
     ap.add_argument("--track", default="frame", choices=["frame", "segment", "procedure"])
+    ap.add_argument("--dataset", default=DATASET, choices=sorted(DATASET_BASE_FPS))
     ap.add_argument("--splits", nargs="+", default=["train", "test"])
     ap.add_argument("--frames-folder", default="frames")
     ap.add_argument("--stride", type=int, default=1, help="frames every N source frames (windows)")
@@ -235,6 +261,7 @@ def _main() -> None:
     for sp in a.splits:
         extract_split(
             a.track, sp,
+            dataset=a.dataset,
             frames_folder=a.frames_folder, stride=a.stride, resolution=res,
             max_workers=a.workers, skip_existing=not a.overwrite,
         )

@@ -103,7 +103,42 @@ def main() -> None:
 
     import dataset as D  # noqa: E402 — defer heavy imports until after arg parsing
 
+    # The default ``file_descriptor`` strategy can race with the DataLoader pin
+    # thread when a worker recycles a large vision batch: the worker's resource
+    # sharer socket can disappear before the main process detaches the storage.
+    # Named shared-memory files avoid that socket lifetime dependency.
+    torch.multiprocessing.set_sharing_strategy("file_system")
+    log.info(
+        "torch multiprocessing sharing strategy: %s",
+        torch.multiprocessing.get_sharing_strategy(),
+    )
+
     base = a.base or resolve_base(cfg["base_path"])
+    datasets = tuple(cfg.get("datasets", ["heico"]))
+    ds = D.FrameSFTDataset(
+        a.track, a.split, datasets=datasets, frames_folder=a.frames_folder, limit=a.limit
+    )
+    missing = [ex["image_path"] for ex in ds.examples if not Path(ex["image_path"]).is_file()]
+    if missing:
+        raise FileNotFoundError(
+            f"{len(missing)} training frames are missing; first: {missing[:3]}"
+        )
+    eval_ds = D.FrameSFTDataset(
+        a.track, "test", datasets=datasets, frames_folder=a.frames_folder,
+    )
+    missing_eval = [
+        ex["image_path"] for ex in eval_ds.examples if not Path(ex["image_path"]).is_file()
+    ]
+    if missing_eval:
+        raise FileNotFoundError(
+            f"{len(missing_eval)} evaluation frames are missing; first: {missing_eval[:3]}"
+        )
+    dataset_counts = {
+        dataset: sum(ex["dataset"] == dataset for ex in ds.examples)
+        for dataset in datasets
+    }
+    log.info("train examples: %d across %s", len(ds), dataset_counts)
+
     log.info("base=%s | torch %s | cuda=%s | dev=%s", base, torch.__version__,
              torch.cuda.is_available(),
              torch.cuda.get_device_name(0) if torch.cuda.is_available() else "CPU")
@@ -147,9 +182,7 @@ def main() -> None:
     model.print_trainable_parameters()
     model.enable_input_require_grads()  # let grads reach LoRA through frozen embeddings
 
-    ds = D.FrameSFTDataset(a.track, a.split, limit=a.limit)
     collator = D.SFTCollator(processor)
-    log.info("train examples: %d", len(ds))
 
     t = cfg["train"]
     epochs = a.epochs if a.epochs is not None else t["epochs"]
@@ -170,13 +203,19 @@ def main() -> None:
         save_strategy=t.get("save_strategy", "epoch"),
         save_total_limit=None,  # keep every epoch checkpoint for eval
         dataloader_num_workers=t.get("dataloader_num_workers", 4),
+        dataloader_pin_memory=t.get("dataloader_pin_memory", True),
+        dataloader_persistent_workers=t.get("dataloader_persistent_workers", True),
+        dataloader_prefetch_factor=t.get("dataloader_prefetch_factor", 4),
         remove_unused_columns=False,  # keep pixel_values etc. for the collator
         report_to="none",
         seed=t.get("seed", 42),
-        optim="adamw_torch",
+        optim=t.get("optim", "adamw_torch_fused"),
+        tf32=t.get("tf32", True),
+        auto_find_batch_size=t.get("auto_find_batch_size", False),
     )
     (out / "train_meta.json").write_text(
         json.dumps({"base": base, "config": cfg, "targets": targets, "epochs": epochs,
+                    "datasets": datasets, "dataset_counts": dataset_counts,
                     "n_train": len(ds)}, indent=2, default=str)
     )
 
@@ -187,7 +226,8 @@ def main() -> None:
             processor=processor, out_dir=str(out), judge_model=a.judge_model,
             track=a.track, split="test", frames_folder=a.frames_folder,
             max_new_tokens=t.get("max_new_tokens", 64),
-            eval_limit=a.eval_limit, model_name=cfg.get("model_name", "lora"),
+            datasets=datasets, eval_n=(a.eval_limit or t.get("eval_n")),
+            seed=t.get("seed", 42), model_name=cfg.get("model_name", "lora"),
         ))
         log.info("per-epoch eval enabled (judge=%s eval_limit=%s)", a.judge_model, a.eval_limit)
     elif a.eval_each_epoch and not a.judge_model:

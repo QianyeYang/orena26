@@ -3,18 +3,19 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>ORena FOCUS — prediction visualiser</title>
+  <title>ORena FOCUS — latest Frame results</title>
   <link rel="stylesheet" href="/static/style.css" />
 </head>
 <body>
   <header id="topbar">
     <div class="row primary">
-      <strong class="brand">ORena&nbsp;FOCUS</strong>
-      <label>Track/split
+      <strong class="brand">ORena&nbsp;FOCUS · latest Frame model</strong>
+      <label>Dataset
         <select id="splitSel"></select>
       </label>
       <div class="views">
         <button id="viewMatrix" class="viewbtn active">Matrix</button>
+        <button id="viewStats" class="viewbtn">Capabilities</button>
         <button id="viewCase" class="viewbtn">Case</button>
       </div>
       <input id="search" type="search" placeholder="search question text…" />
@@ -48,9 +49,31 @@
   </header>
 
   <main>
-    <section id="matrixView"><div id="matrixWrap"></div></section>
+    <section id="matrixView">
+      <div id="drilldownBar" class="drilldown hidden"></div>
+      <div id="matrixWrap"></div>
+    </section>
+    <section id="statsView" class="hidden">
+      <div class="stats-toolbar">
+        <div>
+          <h2>Capability performance</h2>
+          <p>Accuracy and wrong-answer review using the official ORena FOCUS taxonomy.</p>
+        </div>
+        <label>Model
+          <select id="statsModelSel"></select>
+        </label>
+        <label>Assignment
+          <select id="statsScopeSel">
+            <option value="primary">primary only</option>
+            <option value="tagged">primary + secondary tags</option>
+          </select>
+        </label>
+      </div>
+      <div id="statsBody"></div>
+    </section>
     <section id="caseView" class="hidden">
       <div id="caseNav">
+        <button id="backMatrix">← back to matrix</button>
         <button id="prevCase">← prev</button>
         <span id="casePos"></span>
         <button id="nextCase">next →</button>

@@ -1,0 +1,7 @@
+*.sif
+*.tar
+*.tar.gz
+*.tgz
+.apptainer/
+__pycache__/
+test/output/

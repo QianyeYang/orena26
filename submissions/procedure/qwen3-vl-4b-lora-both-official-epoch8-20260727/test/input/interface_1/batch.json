@@ -1,0 +1,12 @@
+{
+  "qIDs": [
+    "q001",
+    "q002",
+    "q003"
+  ],
+  "batch_size": 3,
+  "layout": {
+    "plain": "plain/<qID>.mp4"
+  },
+  "fixture_note": "Synthetic 16-minute clips at 5 fps; each reaches the 96-frame inference cap."
+}

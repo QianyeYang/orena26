@@ -1,5 +1,9 @@
 # Result Summary
 
+> New experiment reports are organized under [`result-summary/`](result-summary/README.md)
+> by track and experiment. This cross-track file is retained as a historical
+> snapshot so prior results are not discarded.
+
 Technical numerical results of all methods & baselines, across tracks. Kept clean and
 organised (one row per method per split; revise in place, do not append duplicates).
 
@@ -14,8 +18,14 @@ rule. Only 10 test videos -> wide CIs; not per-question micro-accuracy.
 | FRAME | **LoRA SFT sweep best · Qwen3-VL-4B** (LLM+vision LoRA), best of 30-ep, 1 frame | **0.828** | [0.780, 0.864] | 2000 | 2026-06-24 |
 | FRAME | zero-shot sweep best · InternVL3.5-30B-A3B (MoE), 1 frame | 0.444 | [0.389, 0.503] | 2000 | 2026-06-21 |
 | FRAME | baseline · Qwen2.5-VL-7B, 1 frame, zero-shot | 0.305 | [0.241, 0.367] | 2000 | 2026-06-19 |
-| SEGMENT | — | — | — | — | — |
-| PROCEDURE | — | — | — | — | — |
+| SEGMENT | LoRA SFT · Qwen3-VL-4B, ep3/12 (interrupted), 64 frames @1fps | 0.740† | [0.682, 0.799] | 500 | 2026-07-09 |
+| SEGMENT | baseline · Qwen3-VL-4B, 64 timestamped frames @1fps, zero-shot | 0.282 | [0.253, 0.312] | 2000 | 2026-07-08 |
+| PROCEDURE | baseline · Qwen3-VL-4B, 128 timestamped frames @10s grid, zero-shot | 0.232 | [0.173, 0.311] | 1000 | 2026-07-08 |
+
+† provisional: seeded 500-row subset of the 2000-row test set (not the full set
+used elsewhere in this table), and training was wall-time-cut at epoch 5/12 with
+no full-test confirmation run yet at the epoch-3 checkpoint — see SEGMENT §
+LoRA fine-tuning.
 
 ## FRAME
 
@@ -170,7 +180,146 @@ map (weakest & largest = `object_identification` + `fo_class`/`open_ended`, ~hal
 | object_identification | object_recognition | 0.217 | 966 |
 
 ## SEGMENT
-_(no runs yet)_
+
+### baseline · Qwen3-VL-4B zero-shot (interleaved timestamped frames, n=2000)
+
+Clip `[start, end]` → ≤64 frames on a 1 fps grid (even subsample, mean 49.8/Q),
+each passed as `"Frame at HH:MM:SS:" + <image>` at max_pixels 262144 (252 tok/frame,
+~13K prefill); absolute-time labels keep question/answer/frame time in one coordinate
+system (Qwen's native video path would stamp clip-relative times). Format-aware prompts
+incl. a multi-select MC variant (21 test Qs). Harness: `track-segment/baseline/`.
+0.86 s/Q (budget 15 s), 2000/2000 parseable, 0 errors.
+
+**Overall 0.282 [0.253, 0.312]** — near the FRAME zero-shot level (0.322) despite the
+harder temporal task.
+
+| binary | fo_class | multiple_choice | number | open_ended | percentage | time |
+|---|---|---|---|---|---|---|
+| 0.326 | 0.252 | 0.438 | 0.308 | 0.449 | 0.028 | 0.095 |
+
+| aggregation | complex_reasoning | event_understanding | object_recognition | temporal_grounding |
+|---|---|---|---|---|
+| 0.369 | 0.224 | 0.208 | 0.413 | 0.093 |
+
+Findings / floors to read the numbers against:
+- **Knowledge-style questions carry the score**: fo_usage_purpose 0.90,
+  causal_consequence_reasoning 0.83, spatial_localization_situs 0.96 — answerable with
+  weak visual grounding. Visual bulk (`object_identification` 0.35, `fo_class` 0.25) is
+  the same weakness the FRAME track had pre-SFT.
+- **`percentage` ≈ 0 by construction**: focus compares with `isclose(abs_tol=1e-9)` —
+  effectively exact match (42 Qs).
+- **`time` 0.095 under a ±1.1–4.3 s acceptance window** (duration-scaled) with 1 fps
+  sampling — hardest format here; `duration_estimation` 0.04 / `temporal_localization`
+  0.16 drag `temporal_grounding` to 0.09. Error analysis: `time` covers BOTH
+  absolute-timestamp GTs and duration GTs (`00:00:12`); zero-shot answers durations as
+  absolute timestamps (the prompt says "timestamp"). SFT learns the duration convention
+  from the gold answers.
+- `fo_class` ceiling is 0.986 (6/440 multi-label refs unscorable for every method).
+
+### LoRA fine-tuning (interleaved timestamped frames, n_train=4000)
+
+Same recipe as FRAME (LoRA r16/α32 on LLM+vision+projector via `modules_to_save`,
+lr 1e-4 cosine, eff. batch 16, bf16, seed 42), same sampling as the zero-shot
+baseline (≤64 frames @1fps, 262144 px). Harness: `track-segment/lora-finetune/`.
+Per-epoch eval scores a **seeded 500-row subset** of the 2000-row test set for
+speed; per `architecture.md`, a full-test run at the winning checkpoint should
+follow but **has not been run yet** — treat the numbers below as provisional.
+
+12-epoch target (250 steps/ep). A smoke test (`--limit 48`, 2026-07-08 11:08)
+validated the harness; the real run then started 2026-07-08 18:59, trained
+epochs 1-5, and was cancelled mid-epoch-6 by the 24h SLURM limit at
+2026-07-09 18:59 — not resumed since.
+
+| epoch | step | overall acc (500-row subset) |
+|---|---|---|
+| 1 | 250 | 0.702 |
+| 2 | 500 | 0.699 |
+| 3 | 750 | **0.740** |
+| 4 | 1000 | 0.738 |
+| 5 | 1250 | 0.726 |
+
+Best-epoch (3) breakdown (500-row subset):
+
+| binary | fo_class | multiple_choice | number | open_ended | percentage | time |
+|---|---|---|---|---|---|---|
+| 0.943 | 0.745 | 0.828 | 0.790 | 0.854 | 0.139 | 0.442 |
+
+| aggregation | complex_reasoning | event_understanding | object_recognition | temporal_grounding |
+|---|---|---|---|---|
+| 0.815 | 0.768 | 0.849 | 0.836 | 0.441 |
+
+Findings:
+- **Provisional best 0.740 vs zero-shot 0.282 (+0.458)** — same order-of-magnitude
+  jump SFT gave FRAME (+0.51), pending full-2000 confirmation.
+- Peaks at epoch 3, dips at 4-5 (0.738, 0.726 — 500-row noise or early overfit) —
+  only 5 of the 12 targeted epochs completed before the wall-time cut (FRAME's
+  own winner needed 23).
+- `temporal_grounding`/`time` remain the lowest-scoring categories even after
+  SFT (0.44 both) — a large absolute gain from zero-shot (0.09) but still the
+  floor relative to other categories now at 0.7-0.9+; 1 fps sampling caps
+  temporal precision regardless of SFT.
+- `binary` saturates (0.943, +0.617 over zero-shot); `object_recognition`
+  0.836 (+0.42) is the next-biggest lift — mirrors FRAME's pattern of SFT
+  fixing the visual-recognition bulk fastest.
+- Next: resume training (`sbatch train.slurm`, auto-resumes from
+  checkpoint-1250) toward the 12-epoch target, then run `infer.slurm` +
+  `eval.slurm` on the best checkpoint against the full 2000-row test set.
 
 ## PROCEDURE
-_(no runs yet)_
+
+### baseline · Qwen3-VL-4B zero-shot (interleaved timestamped frames, n=1000)
+
+Prefix `[00:00:00, T]` (T up to ~5 h) → ≤128 frames on a 10 s grid (mean 125.8/Q,
+effective spacing 40–130 s after subsampling), same interleaved absolute-timestamp
+prompt, max_pixels 262144 (~33K prefill). Harness: `track-procedure/baseline/`.
+2.63 s/Q (budget 30 s), 999/1000 parseable, 0 errors. Technical leaderboard scope;
+the Clinical leaderboard (`clinical_relevance=True`, 16 test rows) comes from the same
+eval output.
+
+**Overall 0.232 [0.173, 0.311]** (wide CI: macro over 10 test videos).
+
+| binary | fo_class | multiple_choice | number | open_ended | percentage | time |
+|---|---|---|---|---|---|---|
+| 0.542 | 0.226 | 0.376 | 0.245 | 0.327 | 0.000 | 0.030 |
+
+| aggregation | complex_reasoning | event_understanding | object_recognition | temporal_grounding |
+|---|---|---|---|---|
+| 0.245 | 0.282 | 0.125 | 0.467 | 0.036 |
+
+Findings / floors to read the numbers against:
+- **`time` 0.030 is a sampling-resolution floor, not (only) a model failure**: answers
+  are accepted within ±5 s but sampled frames are 40–130 s apart. Localising an event
+  to ±5 s over up to 5 h at 128 frames is structurally out of reach; a
+  retrieve-then-zoom second stage would be needed.
+- **`percentage` 0.000 by construction** (exact match, 20 Qs).
+- **Counting over long horizons collapses**: `number` 0.245; the model systematically
+  undercounts events spread over hours (e.g. GT 22 sponge exits → predicts 2).
+- `fo_class` ceiling is 0.862 here (33/239 multi-label refs) — the tightest of the
+  three tracks.
+- `binary` 0.542 is the bright spot (presence/recurrence questions).
+
+### LoRA fine-tuning — harness validated, full run not yet launched
+
+Two smoke tests (`--limit 48 --epochs 1 --eval-limit 12`: 3 optimizer steps
+over 48 examples + a 12-row toy eval, not a trained model) de-risked the
+harness before committing to the real 8-epoch/2000-row run:
+
+| attempt (2026-07-08, start) | sampling | outcome |
+|---|---|---|
+| 1, 11:09 | 128 frames @ 262144 (baseline default) | **OOM in backward** (tried to alloc 19.4 GiB; 81/95 GiB already in use) |
+| 2, 18:59 | 96 frames @ 131072 (reduced) | ran clean; 1 smoke epoch; 3/12 correct on the toy subset |
+
+Confirms the reduced-sampling recipe in `architecture.md` fixes the OOM.
+**No real training run has been submitted** — the smoke-test numbers (n=12,
+several leaf categories n=1) are noise, not a model result, and are excluded
+from the leaderboard.
+
+Separately, a **full-test zero-shot rerun at the SFT-matched reduced
+sampling** (96 frames @ 131072, n=1000) isolates the sampling cut from any
+future SFT gain: **0.216 [0.160, 0.285]** vs the baseline's 0.232 [0.173,
+0.311] at 128 frames — a small, CI-overlapping drop. So the sampling
+reduction needed to dodge the OOM costs little by itself; once trained, the
+real SFT delta should be measured against this 0.216, not 0.232.
+
+Next: `sbatch track-procedure/lora-finetune/scripts/train.slurm` (no args,
+auto-resumes across 24h jobs) for the real run.

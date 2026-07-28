@@ -1,0 +1,276 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="color-scheme" content="light">
+  <title>Frame Annotation Tool · FOCUS</title>
+  <link rel="stylesheet" href="/style.css">
+</head>
+<body>
+  <header class="app-header">
+    <div class="brand">
+      <span class="brand-mark" aria-hidden="true">F</span>
+      <div>
+        <div class="eyebrow">ORena FOCUS · Frame track</div>
+        <h1>Frame Annotation Tool</h1>
+      </div>
+    </div>
+    <nav class="tabs" aria-label="Primary navigation">
+      <button class="tab active" data-view="annotate">Annotate</button>
+      <button class="tab" data-view="guide">Object guide</button>
+      <button class="tab" data-view="progress">Progress</button>
+    </nav>
+    <div class="header-progress" id="header-progress">
+      <span class="muted">Loading pool…</span>
+    </div>
+  </header>
+
+  <main>
+    <section id="view-annotate" class="view active">
+      <div class="workspace">
+        <aside class="queue-panel">
+          <div class="panel-heading">
+            <div>
+              <div class="eyebrow">Priority queue</div>
+              <h2>Cases</h2>
+            </div>
+            <button id="queue-refresh" class="icon-button" title="Refresh statuses"
+                    aria-label="Refresh statuses">↻</button>
+          </div>
+          <div class="queue-filters">
+            <label>
+              <span>Priority batch</span>
+              <select id="batch-filter"></select>
+            </label>
+            <div class="filter-row">
+              <label>
+                <span>Dataset</span>
+                <select id="dataset-filter">
+                  <option value="all">Both</option>
+                  <option value="heico">HeiCo</option>
+                  <option value="lapchole">LapChole</option>
+                </select>
+              </label>
+              <label>
+                <span>Status</span>
+                <select id="status-filter">
+                  <option value="all">All</option>
+                  <option value="unstarted">Unstarted</option>
+                  <option value="in_progress">In progress</option>
+                  <option value="needs_review">Needs review</option>
+                  <option value="complete">Complete</option>
+                  <option value="skipped">Skipped</option>
+                </select>
+              </label>
+            </div>
+            <label>
+              <span>Find rank, case, video, or time</span>
+              <input id="queue-search" type="search" placeholder="e.g. 17 or 00:33:44">
+            </label>
+          </div>
+          <div id="queue-summary" class="queue-summary"></div>
+          <div id="case-list" class="case-list" role="list"></div>
+          <button id="show-more" class="secondary wide hidden">Show more</button>
+        </aside>
+
+        <section class="image-panel">
+          <div id="case-heading" class="case-heading skeleton">
+            <div>
+              <div class="eyebrow">Select a case</div>
+              <h2>Loading annotation pool…</h2>
+            </div>
+          </div>
+          <div class="canvas-toolbar">
+            <div class="tool-hint">
+              <span class="tool-dot"></span>
+              Draw a box, or click a box to move/resize it
+            </div>
+            <div class="zoom-tools">
+              <button id="zoom-out" class="icon-button" aria-label="Zoom out">−</button>
+              <input id="zoom-range" type="range" min="25" max="250" step="5"
+                     value="100" aria-label="Image zoom">
+              <button id="zoom-in" class="icon-button" aria-label="Zoom in">+</button>
+              <button id="zoom-fit" class="secondary compact">Fit</button>
+              <span id="zoom-label" class="mono">100%</span>
+            </div>
+          </div>
+          <div id="canvas-viewport" class="canvas-viewport">
+            <div id="canvas-empty" class="canvas-empty">
+              <div class="empty-icon">⌖</div>
+              <p>Select a priority case to begin.</p>
+            </div>
+            <div id="image-surface" class="image-surface hidden">
+              <img id="case-image" alt="Surgical frame to annotate" draggable="false">
+              <canvas id="box-canvas" aria-label="Bounding box annotation canvas"></canvas>
+            </div>
+          </div>
+          <div class="canvas-footer">
+            <div id="image-meta" class="muted">—</div>
+            <div class="keyboard-help">
+              <kbd>Del</kbd> delete box · <kbd>N</kbd> next incomplete ·
+              <kbd>S</kbd> save draft
+            </div>
+          </div>
+        </section>
+
+        <aside class="annotation-panel">
+          <div class="right-scroll">
+            <section class="control-section">
+              <div class="section-title-row">
+                <h3>1. Annotate every instance</h3>
+                <span id="save-state" class="save-state">Not loaded</span>
+              </div>
+              <label class="field">
+                <span>Class for new / selected box</span>
+                <select id="class-select"></select>
+              </label>
+              <div class="toggle-row">
+                <label class="check-card">
+                  <input id="box-difficult" type="checkbox">
+                  <span><strong>Difficult</strong><small>tiny, blurred, occluded</small></span>
+                </label>
+                <label class="check-card">
+                  <input id="box-uncertain" type="checkbox">
+                  <span><strong>Uncertain</strong><small>send to review</small></span>
+                </label>
+              </div>
+              <button id="delete-box" class="danger-secondary wide" disabled>
+                Delete selected box
+              </button>
+              <label class="no-object-card">
+                <input id="no-objects" type="checkbox">
+                <span>
+                  <strong>No foreign objects are visible</strong>
+                  <small>Use only after scanning the entire frame.</small>
+                </span>
+              </label>
+              <div id="box-list" class="box-list">
+                <div class="empty-small">No boxes yet.</div>
+              </div>
+            </section>
+
+            <section class="control-section">
+              <div class="section-title-row">
+                <h3>2. Compare with QA</h3>
+                <span id="qa-count" class="count-pill">0 QA</span>
+              </div>
+              <p class="helper">
+                QA is your context and consistency check. Inspect the image yourself;
+                route a genuine disagreement to <em>Needs review</em>.
+              </p>
+              <div id="qa-list" class="qa-list"></div>
+            </section>
+
+            <section class="control-section">
+              <h3>3. Completion gate</h3>
+              <div id="derived-summary" class="derived-summary"></div>
+              <div id="validation-list" class="validation-list"></div>
+              <div class="completion-checks">
+                <label><input type="checkbox" data-check="full_frame_scanned">
+                  I scanned the whole frame, including edges.</label>
+                <label><input type="checkbox" data-check="every_instance_boxed">
+                  Every visible instance has its own box.</label>
+                <label><input type="checkbox" data-check="classes_reviewed">
+                  I reviewed every class using the guide if unsure.</label>
+                <label><input type="checkbox" data-check="qa_compared">
+                  I compared boxes and counts with all QA above.</label>
+              </div>
+              <label class="field">
+                <span>Notes / reason for review or skip</span>
+                <textarea id="case-notes" rows="3"
+                          placeholder="Record ambiguity, possible QA error, or skip reason…"></textarea>
+              </label>
+            </section>
+          </div>
+          <div class="action-bar">
+            <button id="save-draft" class="secondary">Save draft</button>
+            <button id="needs-review" class="warning">Needs review</button>
+            <button id="mark-complete" class="primary">Complete & next</button>
+            <button id="skip-case" class="text-button">Skip with note</button>
+          </div>
+        </aside>
+      </div>
+    </section>
+
+    <section id="view-guide" class="view guide-view">
+      <div class="guide-hero">
+        <div>
+          <div class="eyebrow">Read before labeling</div>
+          <h2>Foreign-object field guide</h2>
+          <p>
+            Use the released Frame QA and examples as support, but label what is
+            actually visible. When identity remains ambiguous, draw the best box,
+            mark it uncertain, and save the case for review.
+          </p>
+        </div>
+        <div class="guide-rule">
+          <strong>One visible instance = one box.</strong>
+          <span>Nested objects stay separate: for example, a specimen or gallstone
+            inside a specimen bag receives its own box.</span>
+        </div>
+      </div>
+      <div class="workflow-strip">
+        <article><span>1</span><div><strong>Scan systematically</strong>
+          <p>Centre → edges → instrument tips → obscured tissue.</p></div></article>
+        <article><span>2</span><div><strong>Box tightly</strong>
+          <p>Include the visible object, not large surrounding anatomy.</p></div></article>
+        <article><span>3</span><div><strong>Reconcile QA</strong>
+          <p>Check total count, per-class count, and class inventory.</p></div></article>
+        <article><span>4</span><div><strong>Escalate uncertainty</strong>
+          <p>Never guess silently; mark uncertain and use Needs review.</p></div></article>
+      </div>
+      <div class="guide-notice">
+        <strong>Released-data coverage:</strong>
+        Mesh and Absorbable Hemostatic Agent do not occur in the released Frame
+        training answers, so the guide marks their external clinical references
+        explicitly. Those references teach appearance; they are not challenge
+        training examples.
+      </div>
+      <div id="class-guide" class="class-guide"></div>
+    </section>
+
+    <section id="view-progress" class="view progress-view">
+      <div class="progress-header">
+        <div>
+          <div class="eyebrow">Coverage and recovery</div>
+          <h2>Annotation progress</h2>
+          <p>Complete cases alone enter the training exports. Review and draft cases
+            remain visible so no work is silently lost.</p>
+        </div>
+        <button id="create-export" class="primary">Create training export</button>
+      </div>
+      <div id="progress-cards" class="progress-cards"></div>
+      <section class="progress-section">
+        <div class="section-title-row">
+          <h3>Priority batches</h3>
+          <span class="muted">100 cases per batch · click a row to continue</span>
+        </div>
+        <div class="table-wrap">
+          <table>
+            <thead><tr>
+              <th>Batch</th><th>Ranks</th><th>Complete</th><th>Review</th>
+              <th>In progress</th><th>Unstarted</th><th>Coverage</th>
+            </tr></thead>
+            <tbody id="batch-progress"></tbody>
+          </table>
+        </div>
+      </section>
+      <section class="progress-section">
+        <h3>Dataset balance</h3>
+        <div id="dataset-progress" class="dataset-progress"></div>
+      </section>
+      <div id="export-result" class="export-result hidden"></div>
+    </section>
+  </main>
+
+  <div id="toast-region" class="toast-region" aria-live="polite"></div>
+
+  <dialog id="guide-dialog" class="guide-dialog">
+    <button id="close-dialog" class="dialog-close" aria-label="Close">×</button>
+    <div id="dialog-content"></div>
+  </dialog>
+
+  <script src="/app.js" defer></script>
+</body>
+</html>

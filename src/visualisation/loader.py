@@ -1,13 +1,13 @@
-"""Experiment-run discovery + unified record building for the visualiser.
+"""Scoped experiment-result loading for the visualiser.
 
-Every run on disk is normalised into the same shape so the server/UI never has
-to care whether a run is a "rich" one (self-contained ``predictions.parquet``,
-written by the zero-shot sweep) or a "legacy" one (``responses.json`` +
-``requests.json``, written by the older baseline).
+Each selected result directory is normalised into the same shape so the
+server/UI never has to care whether it is a "rich" result (self-contained
+``predictions.parquet``) or a "legacy" result (``responses.json`` plus
+``requests.json``).
 
-A run lives under ``track-*/<method>/logs/<resp_dir>/[<model>/]`` and is detected
-by containing ``predictions.parquet`` OR ``responses.json``. ``logs/smoke/*`` runs
-are skipped by default (partial ``--limit`` smoke tests).
+The normal launcher passes an explicit run root, avoiding an expensive scan of
+unrelated tracks and historical epochs. Repository-wide discovery remains
+available when no roots are supplied.
 """
 
 from __future__ import annotations
@@ -46,6 +46,7 @@ class RunInfo:
     model_name: str
     track: str
     split: str
+    dataset: str
     kind: str  # "rich" | "legacy"
     dir: str
     accuracy: float | None
@@ -59,6 +60,7 @@ class RunInfo:
             "model_name": self.model_name,
             "track": self.track,
             "split": self.split,
+            "dataset": self.dataset,
             "kind": self.kind,
             "accuracy": self.accuracy,
             "count": self.count,
@@ -67,10 +69,11 @@ class RunInfo:
 
 @dataclass
 class SplitData:
-    """All runs + shared per-question info for one (track, split)."""
+    """All runs + shared per-question info for one (track, split, dataset)."""
 
     track: str
     split: str
+    dataset: str
     order: list[str] = field(default_factory=list)  # qID order
     questions: dict[str, dict] = field(default_factory=dict)  # qID -> shared info
     run_ids: list[str] = field(default_factory=list)
@@ -81,10 +84,10 @@ class SplitData:
 @dataclass
 class Dataset:
     runs: list[RunInfo] = field(default_factory=list)
-    splits: dict[tuple[str, str], SplitData] = field(default_factory=dict)
+    splits: dict[tuple[str, str, str], SplitData] = field(default_factory=dict)
 
-    def split(self, track: str, split: str) -> SplitData | None:
-        return self.splits.get((track, split))
+    def split(self, track: str, split: str, dataset: str) -> SplitData | None:
+        return self.splits.get((track, split, dataset))
 
 
 # --------------------------------------------------------------------------- #
@@ -94,12 +97,16 @@ def _as_str_list(v) -> list[str]:
     """Normalise a secondary-capabilities value (ndarray | list | str | None)."""
     if v is None:
         return []
-    if isinstance(v, (list, tuple, np.ndarray)):
-        return [str(x) for x in v if x is not None and str(x) != ""]
-    s = str(v).strip()
-    if not s:
-        return []
-    return [p.strip() for p in s.replace(";", ",").split(",") if p.strip()]
+    values = v if isinstance(v, (list, tuple, np.ndarray)) else [v]
+    out: list[str] = []
+    for value in values:
+        if value is None:
+            continue
+        for part in re.split(r"[|;,]", str(value)):
+            code = part.strip()
+            if code and code not in out:
+                out.append(code)
+    return out
 
 
 def _read_json(p: Path):
@@ -148,19 +155,49 @@ def _read_overall_accuracy(run_dir: Path) -> float | None:
 _EPOCH_RE = re.compile(r"^eval_epoch_(\d+)$")
 
 
-def discover_runs(repo_root: Path, include_smoke: bool = False) -> list[Path]:
-    """Return run directories (each holds predictions.parquet or responses.json).
+def _resolve_run_root(repo_root: Path, value: str | Path) -> Path:
+    root = Path(value)
+    root = root if root.is_absolute() else repo_root / root
+    root = root.resolve()
+    try:
+        root.relative_to(repo_root.resolve())
+    except ValueError as exc:
+        raise ValueError(f"run root must be inside the repository: {root}") from exc
+    if not root.is_dir():
+        raise FileNotFoundError(f"run root is not a directory: {root}")
+    return root
+
+
+def discover_runs(
+    repo_root: Path,
+    include_smoke: bool = False,
+    run_roots: list[str | Path] | None = None,
+) -> list[Path]:
+    """Return directories containing ``predictions.parquet`` or ``responses.json``.
 
     Per-epoch eval dirs are collapsed to the single best-accuracy epoch per base
-    model — showing all ~20 epochs would flood the matrix.
+    model during repository-wide discovery. Explicit run roots load only their
+    descendants and are not replaced by historical "best epoch" results.
     """
     dirs: set[Path] = set()
-    for marker in ("predictions.parquet", "responses.json"):
-        for p in repo_root.glob(f"track-*/*/logs/**/{marker}"):
-            dirs.add(p.parent)
+    if run_roots:
+        for value in run_roots:
+            root = _resolve_run_root(repo_root, value)
+            for marker in ("predictions.parquet", "responses.json"):
+                direct = root / marker
+                if direct.is_file():
+                    dirs.add(root)
+                dirs.update(p.parent for p in root.rglob(marker))
+    else:
+        for marker in ("predictions.parquet", "responses.json"):
+            for p in repo_root.glob(f"track-*/*/logs/**/{marker}"):
+                dirs.add(p.parent)
     if not include_smoke:
         dirs = {d for d in dirs if "/smoke/" not in str(d).replace(os.sep, "/")}
-    return _select_best_epochs(dirs)
+    selected = sorted(dirs) if run_roots else _select_best_epochs(dirs)
+    if run_roots and not selected:
+        raise FileNotFoundError("no predictions.parquet or responses.json under run root(s)")
+    return selected
 
 
 def _select_best_epochs(dirs: set[Path]) -> list[Path]:
@@ -340,19 +377,24 @@ def _load_legacy(
 # --------------------------------------------------------------------------- #
 # Top-level build
 # --------------------------------------------------------------------------- #
-def build_dataset(repo_root: Path | None = None, include_smoke: bool = False) -> Dataset:
-    """Discover and load every run into an in-memory :class:`Dataset`."""
+def build_dataset(
+    repo_root: Path | None = None,
+    include_smoke: bool = False,
+    run_roots: list[str | Path] | None = None,
+) -> Dataset:
+    """Load selected result roots into an in-memory :class:`Dataset`."""
     repo_root = Path(repo_root) if repo_root else paths.REPO_ROOT
     ds = Dataset()
     gt_cache: dict = {}
     split_id_cache: dict = {}
 
-    for run_dir in discover_runs(repo_root, include_smoke):
+    for run_dir in discover_runs(repo_root, include_smoke, run_roots):
         try:
             meta = _read_meta(run_dir)
             rel = run_dir.relative_to(repo_root)
             track = meta.get("track") or _infer_track(rel)
             split = meta.get("split")
+            dataset = str(meta.get("dataset") or "unknown")
             kind = "rich" if (run_dir / "predictions.parquet").exists() else "legacy"
 
             rich_model = None
@@ -372,8 +414,11 @@ def build_dataset(repo_root: Path | None = None, include_smoke: bool = False) ->
                 continue
             run_id, method, model_name, label = _run_identity(run_dir, repo_root, meta, rich_model)
 
-            key = (track, split)
-            sd = ds.splits.setdefault(key, SplitData(track=track, split=split))
+            key = (track, split, dataset)
+            sd = ds.splits.setdefault(
+                key,
+                SplitData(track=track, split=split, dataset=dataset),
+            )
             for qid, info in base.items():
                 sd.questions.setdefault(qid, info)
                 if qid not in sd.order:
@@ -389,7 +434,7 @@ def build_dataset(repo_root: Path | None = None, include_smoke: bool = False) ->
             ds.runs.append(
                 RunInfo(
                     id=run_id, label=label, method=method, model_name=model_name,
-                    track=track, split=split, kind=kind, dir=str(run_dir),
+                    track=track, split=split, dataset=dataset, kind=kind, dir=str(run_dir),
                     accuracy=acc, count=len(preds),
                 )
             )
@@ -397,8 +442,16 @@ def build_dataset(repo_root: Path | None = None, include_smoke: bool = False) ->
         except Exception:  # noqa: BLE001 — one bad run must not sink the whole tool
             logger.exception("failed to load run dir: %s", run_dir)
 
-    # Stable run ordering: by track, split, accuracy desc, then label.
-    ds.runs.sort(key=lambda r: (r.track, r.split, -(r.accuracy or 0.0), r.label))
+    # Stable run ordering: by track, split, dataset, accuracy desc, then label.
+    ds.runs.sort(
+        key=lambda r: (
+            r.track,
+            r.split,
+            r.dataset,
+            -(r.accuracy or 0.0),
+            r.label,
+        )
+    )
     for sd in ds.splits.values():
         order = {r.id: i for i, r in enumerate(ds.runs)}
         sd.run_ids.sort(key=lambda rid: order.get(rid, 1_000_000))

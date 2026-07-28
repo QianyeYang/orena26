@@ -1,0 +1,15 @@
+name: orena
+channels:
+  - conda-forge
+dependencies:
+  - python=3.12
+  - pip
+  - pip:
+      - orena-focus==0.3.4
+      - accelerate==1.14.0
+      - decord==0.6.0
+      - datasets==5.0.0
+      - huggingface-hub==1.24.0
+      - pandas==3.0.5
+      - peft==0.19.1
+      - python-dotenv==1.2.2

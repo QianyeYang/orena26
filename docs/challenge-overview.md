@@ -65,7 +65,8 @@ These drive answer parsing/validation.
 - `binary` — yes/no, case-insensitive (parsed boolean)
 - `number` — parsed integer, exact match
 - `percentage` & `time` — **tolerance-aware**, thresholds from inter-rater variability
-- `fo_class` — case-insensitive match on canonical class name
+- `fo_class` — one or more comma-separated canonical names, compared as a
+  case- and order-insensitive set
 
 **Open-ended** (**LLM-as-judge**: up to 3 judge LLMs, majority vote; judges
 undisclosed during the challenge):

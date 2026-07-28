@@ -1,0 +1,13 @@
+*.sif
+*.tar
+!resources/python-vendor.tar
+*.tar.gz
+*.tgz
+.apptainer/
+__pycache__/
+guidance.md
+provenance.json
+validate_bundle.py
+resources/training_provenance/
+resources/weights.sha256
+test/

@@ -1,23 +1,39 @@
 #!/bin/bash
 #SBATCH --job-name=orena-download
-#SBATCH --partition=workq
+#SBATCH --partition=allgpus
 #SBATCH --ntasks=1
 #SBATCH --cpus-per-task=4
 #SBATCH --mem=16G
 #SBATCH --time=12:00:00
-#SBATCH --output=/lus/lfs1aip2/projects/u6ix/yipei/Q/project/orena/data/download-%j.log
-#SBATCH --error=/lus/lfs1aip2/projects/u6ix/yipei/Q/project/orena/data/download-%j.log
+#SBATCH --output=logs/download-data-%j.log
+#SBATCH --error=logs/download-data-%j.log
 
-REPO=/lus/lfs1aip2/projects/u6ix/yipei/Q/project/orena
+set -euo pipefail
 
-# HF_TOKEN is loaded from the gitignored .env (never hardcode secrets here).
-# See .env.example. Create .env with: HF_TOKEN=hf_xxx  (chmod 600 .env)
+REPO="${SLURM_SUBMIT_DIR:-$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)}"
+cd "$REPO"
+mkdir -p logs data/.cache/huggingface
+
+# No credential is written to the Slurm log. The Python downloader prefers the
+# HF_KEY assignment in .bashrc and uses this gitignored file as its fallback.
 set -a
-[ -f "$REPO/.env" ] && source "$REPO/.env"
+if [[ -f "$REPO/.env" ]]; then
+    source "$REPO/.env"
+fi
 set +a
-: "${HF_TOKEN:?HF_TOKEN not set — create $REPO/.env from .env.example}"
 
-source ~/miniforge3/etc/profile.d/conda.sh
+# Keep caches off the 50 GB home filesystem.
+export HF_HOME="$REPO/data/.cache/huggingface"
+export HF_HUB_CACHE="$HF_HOME/hub"
+export HF_XET_CACHE="$HF_HOME/xet"
+
+source "$HOME/miniconda3/etc/profile.d/conda.sh"
 conda activate orena
 
-python /lus/lfs1aip2/projects/u6ix/yipei/Q/project/orena/scripts/download_data.py
+if (( $# > 0 )); then
+    download_args=("$@")
+else
+    download_args=(--datasets lapchole)
+fi
+
+python -u "$REPO/scripts/download_data.py" "${download_args[@]}"

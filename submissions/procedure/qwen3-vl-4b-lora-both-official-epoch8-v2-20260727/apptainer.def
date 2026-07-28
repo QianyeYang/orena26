@@ -1,0 +1,27 @@
+Bootstrap: docker
+From: pytorch/pytorch:2.8.0-cuda12.8-cudnn9-runtime
+
+%labels
+    Author ORena FOCUS team
+    Track procedure
+    Algorithm Qwen3-VL-4B LoRA both-official epoch 8 v2
+
+%files
+    resources/python-vendor.tar /opt/app/resources/python-vendor.tar
+    resources/base_model /opt/app/resources/base_model
+    resources/adapter /opt/app/resources/adapter
+    inference.py /opt/app/inference.py
+
+%environment
+    export PYTHONUNBUFFERED=1
+    export PYTHONDONTWRITEBYTECODE=1
+    export HF_HUB_OFFLINE=1
+    export TRANSFORMERS_OFFLINE=1
+    export HF_HUB_DISABLE_TELEMETRY=1
+    export TOKENIZERS_PARALLELISM=false
+    export FOCUS_MODEL_DTYPE=bfloat16
+    export FOCUS_MAX_FRAMES=96
+
+%runscript
+    cd /opt/app
+    exec python /opt/app/inference.py "$@"

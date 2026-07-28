@@ -156,6 +156,9 @@ data/
 # Model weights (open-source VLMs/LLMs)
 os-models/
 
+# Upstream submission template checkout (separate Git repository)
+/submissions/orena-focus-submission-template/
+
 # Logs and checkpoints (shared + per-method)
 logs/
 **/logs/

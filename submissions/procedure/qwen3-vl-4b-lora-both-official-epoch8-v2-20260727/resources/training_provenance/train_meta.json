@@ -1,0 +1,134 @@
+{
+  "track": "procedure",
+  "base": "/dev/shm/engs2732/orena-1096/model",
+  "config": {
+    "base_path": "os-models/Qwen3-VL-4B-Instruct",
+    "run_name": "Qwen3-VL-4B-Instruct-both-official",
+    "model_name": "Qwen3-VL-4B-Instruct-lora-both-official",
+    "datasets": [
+      "heico",
+      "lapchole"
+    ],
+    "dtype": "bfloat16",
+    "attn_implementation": "sdpa",
+    "sampling": {
+      "stride": {
+        "heico": 250,
+        "lapchole": 300
+      },
+      "max_frames": 96,
+      "max_pixels": 131072,
+      "min_pixels": null
+    },
+    "lora": {
+      "r": 16,
+      "alpha": 32,
+      "dropout": 0.05,
+      "target_modules": null,
+      "exclude_name_contains": [
+        "lm_head",
+        "embed_tokens"
+      ],
+      "modules_to_save": null
+    },
+    "train": {
+      "epochs": 8,
+      "per_device_batch_size": 2,
+      "grad_accum": 8,
+      "auto_find_batch_size": true,
+      "learning_rate": 0.0001,
+      "lr_scheduler": "cosine",
+      "warmup_ratio": 0.03,
+      "weight_decay": 0.0,
+      "max_grad_norm": 1.0,
+      "max_new_tokens": 64,
+      "logging_steps": 10,
+      "save_strategy": "epoch",
+      "dataloader_num_workers": 8,
+      "dataloader_pin_memory": false,
+      "dataloader_persistent_workers": true,
+      "dataloader_prefetch_factor": 2,
+      "optim": "adamw_torch_fused",
+      "tf32": true,
+      "seed": 42,
+      "eval_n": 500
+    }
+  },
+  "targets": [
+    "down_proj",
+    "gate_proj",
+    "k_proj",
+    "linear_fc1",
+    "linear_fc2",
+    "o_proj",
+    "proj",
+    "q_proj",
+    "qkv",
+    "up_proj",
+    "v_proj"
+  ],
+  "datasets": [
+    "heico",
+    "lapchole"
+  ],
+  "dataset_counts": {
+    "heico": 4000,
+    "lapchole": 2873
+  },
+  "coverage": {
+    "heico": {
+      "train": {
+        "dataset": "heico",
+        "track": "procedure",
+        "split": "train",
+        "stride": 250,
+        "max_frames": 96,
+        "questions": 4000,
+        "mean_frames_per_q": 95.1365,
+        "unique_frames": 24291,
+        "missing": 0,
+        "missing_examples": []
+      },
+      "test": {
+        "dataset": "heico",
+        "track": "procedure",
+        "split": "test",
+        "stride": 250,
+        "max_frames": 96,
+        "questions": 2000,
+        "mean_frames_per_q": 95.1085,
+        "unique_frames": 9569,
+        "missing": 0,
+        "missing_examples": []
+      }
+    },
+    "lapchole": {
+      "train": {
+        "dataset": "lapchole",
+        "track": "procedure",
+        "split": "train",
+        "stride": 300,
+        "max_frames": 96,
+        "questions": 2873,
+        "mean_frames_per_q": 91.00104420466411,
+        "unique_frames": 15383,
+        "missing": 0,
+        "missing_examples": []
+      },
+      "test": {
+        "dataset": "lapchole",
+        "track": "procedure",
+        "split": "test",
+        "stride": 300,
+        "max_frames": 96,
+        "questions": 1127,
+        "mean_frames_per_q": 92.90062111801242,
+        "unique_frames": 6997,
+        "missing": 0,
+        "missing_examples": []
+      }
+    }
+  },
+  "epochs": 8,
+  "n_train": 6873
+}

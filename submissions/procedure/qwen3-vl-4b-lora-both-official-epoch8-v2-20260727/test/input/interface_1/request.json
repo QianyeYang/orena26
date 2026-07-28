@@ -1,0 +1,74 @@
+[
+  {
+    "qID": "q001",
+    "videoID": "synthetic-procedure-01.mp4",
+    "start_time": 0.0,
+    "end_time": 960.0,
+    "procedure_type": "laparoscopic cholecystectomy",
+    "question": "Do Clips and Sponges co-occur in any frame of this video? Please answer with yes or no."
+  },
+  {
+    "qID": "q002",
+    "videoID": "synthetic-procedure-02.mp4",
+    "start_time": 0.0,
+    "end_time": 960.0,
+    "procedure_type": "laparoscopic cholecystectomy",
+    "question": "How many different foreign object classes do you see in this video? Please provide a number."
+  },
+  {
+    "qID": "q003",
+    "videoID": "synthetic-procedure-03.mp4",
+    "start_time": 0.0,
+    "end_time": 960.0,
+    "procedure_type": "laparoscopic cholecystectomy",
+    "question": "At what time was a Clip first visible in the video? Please provide an answer in the format hh:mm:ss."
+  },
+  {
+    "qID": "q004",
+    "videoID": "synthetic-procedure-04.mp4",
+    "start_time": 0.0,
+    "end_time": 960.0,
+    "procedure_type": "laparoscopic cholecystectomy",
+    "question": "Which foreign object classes are visible during this video? Please provide a class name."
+  },
+  {
+    "qID": "q005",
+    "videoID": "synthetic-procedure-05.mp4",
+    "start_time": 0.0,
+    "end_time": 960.0,
+    "procedure_type": "laparoscopic cholecystectomy",
+    "question": "What percentage of the sampled video contains a visible foreign object? Please answer in format XX%."
+  },
+  {
+    "qID": "q006",
+    "videoID": "synthetic-procedure-06.mp4",
+    "start_time": 0.0,
+    "end_time": 960.0,
+    "procedure_type": "laparoscopic cholecystectomy",
+    "question": "Where is the foreign object most often visible? Please select one answer: top; bottom; left; right"
+  },
+  {
+    "qID": "q007",
+    "videoID": "synthetic-procedure-07.mp4",
+    "start_time": 0.0,
+    "end_time": 960.0,
+    "procedure_type": "laparoscopic cholecystectomy",
+    "question": "Which classes appear in the video? Please select none, one or multiple answers: Clip; Sponge; Needle"
+  },
+  {
+    "qID": "q008",
+    "videoID": "synthetic-procedure-08.mp4",
+    "start_time": 132.5,
+    "end_time": 1092.5,
+    "procedure_type": "laparoscopic cholecystectomy",
+    "question": "At what times was a Clip visible? Please provide an answer in the format hh:mm:ss."
+  },
+  {
+    "qID": "q009",
+    "videoID": "synthetic-procedure-09.mp4",
+    "start_time": 0.0,
+    "end_time": 960.0,
+    "procedure_type": "laparoscopic cholecystectomy",
+    "question": "Which foreign object class, including the challenge-defined Marker Band, is visible? Please provide a class name."
+  }
+]

@@ -1,0 +1,11 @@
+*.sif
+*.tar
+*.tar.gz
+*.tgz
+.apptainer/
+__pycache__/
+guidance.md
+provenance.json
+validate_bundle.py
+resources/training_provenance/
+test/

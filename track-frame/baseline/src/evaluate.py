@@ -18,13 +18,16 @@ sys.path.insert(0, str(REPO))
 
 from focus import Evaluator, load_responses  # noqa: E402
 from src import data  # noqa: E402
-from src.paths import OS_MODELS_DIR  # noqa: E402
+from src.paths import DATASET, DATASETS, OS_MODELS_DIR  # noqa: E402
 
 
 def main() -> None:
     ap = argparse.ArgumentParser(description="Evaluate FRAME baseline responses")
     ap.add_argument("--track", default="frame")
     ap.add_argument("--split", default="test")
+    ap.add_argument("--dataset", default=DATASET, choices=DATASETS)
+    ap.add_argument("--limit", type=int, default=None,
+                    help="score only the first N questions (smoke tests)")
     ap.add_argument("--responses", required=True)
     ap.add_argument("--out", required=True)
     ap.add_argument("--judge-device", default="cuda")
@@ -32,7 +35,9 @@ def main() -> None:
                     help="default: os-models/Qwen3.5-4B if present, else the HF id")
     a = ap.parse_args()
 
-    reqs, refs = data.load_split(a.track, a.split)
+    reqs, refs = data.load_split(a.track, a.split, a.dataset)
+    if a.limit is not None:
+        reqs, refs = reqs[: a.limit], refs[: a.limit]
     responses = load_responses(a.responses)
 
     judge_model = a.judge_model

@@ -10,10 +10,11 @@ This note explains the simplest way to download and load the dataset for the ORE
 
 ## 1. Install the package
 
-Create or activate your Python environment, then install the official package:
+Create the repository environment:
 
 ```bash
-pip install orena-focus datasets
+conda env create -f environment.yml
+conda activate orena
 ```
 
 ## 2. Choose a local data directory
@@ -21,10 +22,15 @@ pip install orena-focus datasets
 Decide where the videos should be stored. For example:
 
 ```text
-/data/focus
+./data/focus
 ```
 
-This directory will contain the downloaded HeiCo video files.
+This directory contains one folder per release:
+
+```text
+data/focus/heico/
+data/focus/lapchole/
+```
 
 ## 3. Download the HeiCo videos
 
@@ -33,17 +39,46 @@ Use the official `focus` package instead of manually downloading files from the 
 ```python
 from focus import FocusConfig, set_config, download
 
-set_config(FocusConfig(root_dir="/data/focus"))
+set_config(FocusConfig(root_dir="data/focus"))
 download("heico")
 ```
 
 After downloading, the video files should be stored under:
 
 ```text
-/data/focus/heico/videos/
+data/focus/heico/videos/
 ```
 
-## 4. Load the VQA annotations
+## 4. Download the gated LapChole release
+
+LapChole contains 170 videos (about 90.3 GiB) and requires approved access to
+`orena-dkfz/lapchole-focus-vqa`. The repository downloader reads `HF_KEY` from
+`~/.bashrc`, with the gitignored `.env` as a fallback.
+
+Check access without downloading:
+
+```bash
+conda activate orena
+python scripts/download_data.py --datasets lapchole --dry-run
+```
+
+Run the large, resumable download as a Slurm job:
+
+```bash
+sbatch scripts/download_data.slurm
+```
+
+Outputs:
+
+```text
+data/focus/lapchole/videos/
+data/parquet/lapchole/{frame,segment,procedure}/{train,test}/0000.parquet
+logs/download-data-<job-id>.log
+```
+
+Re-running the same command resumes or skips completed files.
+
+## 5. Load the VQA annotations
 
 The VQA annotations are hosted on Hugging Face and can be loaded automatically.
 
@@ -63,7 +98,7 @@ Alternatively, use the `FocusDataset` wrapper:
 from focus import FocusConfig, set_config
 from focus import FocusDataset, DatasetSplit, Track
 
-set_config(FocusConfig(root_dir="/data/focus"))
+set_config(FocusConfig(root_dir="data/focus"))
 
 frame_dataset = FocusDataset("heico", DatasetSplit.TRAIN, Track.FRAME)
 request, reference = frame_dataset[0]
@@ -72,7 +107,7 @@ print(request.question)
 print(reference.answer)
 ```
 
-## 5. Recommended starting point
+## 6. Recommended starting point
 
 Start with the FRAME task first.
 
@@ -84,7 +119,7 @@ A practical development order is:
 2. Extend the same code structure to SEGMENT.
 3. Finally adapt it to PROCEDURE.
 
-## 6. Minimal pipeline structure
+## 7. Minimal pipeline structure
 
 A simple VLM pipeline can follow this structure:
 
@@ -104,7 +139,7 @@ For the first baseline, avoid complicated video processing. Use FRAME to verify 
 - the VLM receives the correct visual input;
 - the output format is compatible with the evaluation script.
 
-## 7. Notes
+## 8. Notes
 
 - The challenge websites describe the tasks, but the easiest dataset access is through the official `orena-focus` package and Hugging Face dataset.
 - The Docker submission environment will usually not allow internet access, so all required model weights and data-dependent resources should be prepared before submission.

@@ -1,0 +1,26 @@
+[
+  {
+    "qID": "q001",
+    "videoID": "synthetic-procedure-01.mp4",
+    "start_time": 0.0,
+    "end_time": 960.0,
+    "procedure_type": "laparoscopic cholecystectomy",
+    "question": "Do Clips and Sponges co-occur in any frame of this video? Please answer with yes or no."
+  },
+  {
+    "qID": "q002",
+    "videoID": "synthetic-procedure-02.mp4",
+    "start_time": 0.0,
+    "end_time": 960.0,
+    "procedure_type": "laparoscopic cholecystectomy",
+    "question": "How many different foreign object classes do you see in this video? Please provide a number."
+  },
+  {
+    "qID": "q003",
+    "videoID": "synthetic-procedure-03.mp4",
+    "start_time": 0.0,
+    "end_time": 960.0,
+    "procedure_type": "laparoscopic cholecystectomy",
+    "question": "At what time was a Clip first visible in the video? Please provide an answer in the format hh:mm:ss."
+  }
+]
