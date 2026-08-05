@@ -1,0 +1,246 @@
+{
+  "report": "Segment Qwen3-VL-4B LoRA both-official epoch-6 full test",
+  "generated_at": "2026-08-02T19:37:17.123624+00:00",
+  "scope": "All 6,254 official local Segment test rows: 4,000 HeiCo and 2,254 LapChole. This is an offline local evaluation, not an online leaderboard result.",
+  "source_run": "track-segment/lora-finetune/logs/Qwen3-VL-4B-Instruct-both-official/full_test_epoch_6",
+  "submission_bundle": "submissions/segment/qwen3-vl-4b-lora-both-official-epoch6-20260801",
+  "checkpoint": {
+    "path": "track-segment/lora-finetune/logs/Qwen3-VL-4B-Instruct-both-official/checkpoint-5160",
+    "epoch": 6,
+    "global_step": 5160,
+    "adapter_sha256": "92556248ad9e8a82b7f1d295bac3c32f0984e7e247ef1a74499e7134032b73cb",
+    "selection_basis": "highest equal-dataset mean pre-evaluation score on the fixed seed-42 500-row checkpoint-selection subset"
+  },
+  "coverage": {
+    "rows": 6254,
+    "full_test_rows": 6254,
+    "coverage_fraction": 1.0,
+    "datasets": {
+      "heico": {
+        "evaluated_rows": 4000,
+        "full_test_rows": 4000,
+        "videos": 10,
+        "correct": 2809,
+        "ood_rows": 0,
+        "clinical_rows": 0
+      },
+      "lapchole": {
+        "evaluated_rows": 2254,
+        "full_test_rows": 2254,
+        "videos": 28,
+        "correct": 1746,
+        "ood_rows": 0,
+        "clinical_rows": 0
+      }
+    }
+  },
+  "inference": {
+    "base_model": "os-models/Qwen3-VL-4B-Instruct",
+    "sampling_stride": {
+      "heico": 25,
+      "lapchole": 30
+    },
+    "max_frames": 64,
+    "max_pixels": 262144,
+    "max_new_tokens": 64,
+    "dtype": "bfloat16",
+    "judge_model": "os-models/Qwen3.5-4B",
+    "slurm_array_job_id": "2373",
+    "dataset_run_manifests": {
+      "heico": {
+        "track": "segment",
+        "split": "test",
+        "dataset": "heico",
+        "rows": 4000,
+        "checkpoint": "checkpoint-5160",
+        "epoch": 6,
+        "adapter_sha256": "92556248ad9e8a82b7f1d295bac3c32f0984e7e247ef1a74499e7134032b73cb",
+        "sampling": {
+          "stride": 25,
+          "max_frames": 64,
+          "max_pixels": 262144
+        },
+        "slurm": {
+          "array_job_id": "2373",
+          "array_task_id": "0",
+          "job_id": "2377",
+          "node": "civo-h200-5",
+          "gpu": "NVIDIA H200 NVL"
+        },
+        "completed_at": "2026-08-02T19:36:28.571981+00:00"
+      },
+      "lapchole": {
+        "track": "segment",
+        "split": "test",
+        "dataset": "lapchole",
+        "rows": 2254,
+        "checkpoint": "checkpoint-5160",
+        "epoch": 6,
+        "adapter_sha256": "92556248ad9e8a82b7f1d295bac3c32f0984e7e247ef1a74499e7134032b73cb",
+        "sampling": {
+          "stride": 30,
+          "max_frames": 64,
+          "max_pixels": 262144
+        },
+        "slurm": {
+          "array_job_id": "2373",
+          "array_task_id": "1",
+          "job_id": "2373",
+          "node": "civo-h200-6",
+          "gpu": "NVIDIA H200 NVL"
+        },
+        "completed_at": "2026-08-02T18:49:37.593833+00:00"
+      }
+    },
+    "aggregate_run_manifest": {
+      "track": "segment",
+      "split": "test",
+      "scope": "all official local test rows for HeiCo and LapChole",
+      "rows": 6254,
+      "datasets": {
+        "heico": {
+          "track": "segment",
+          "split": "test",
+          "dataset": "heico",
+          "rows": 4000,
+          "checkpoint": "checkpoint-5160",
+          "epoch": 6,
+          "adapter_sha256": "92556248ad9e8a82b7f1d295bac3c32f0984e7e247ef1a74499e7134032b73cb",
+          "sampling": {
+            "stride": 25,
+            "max_frames": 64,
+            "max_pixels": 262144
+          },
+          "slurm": {
+            "array_job_id": "2373",
+            "array_task_id": "0",
+            "job_id": "2377",
+            "node": "civo-h200-5",
+            "gpu": "NVIDIA H200 NVL"
+          },
+          "completed_at": "2026-08-02T19:36:28.571981+00:00"
+        },
+        "lapchole": {
+          "track": "segment",
+          "split": "test",
+          "dataset": "lapchole",
+          "rows": 2254,
+          "checkpoint": "checkpoint-5160",
+          "epoch": 6,
+          "adapter_sha256": "92556248ad9e8a82b7f1d295bac3c32f0984e7e247ef1a74499e7134032b73cb",
+          "sampling": {
+            "stride": 30,
+            "max_frames": 64,
+            "max_pixels": 262144
+          },
+          "slurm": {
+            "array_job_id": "2373",
+            "array_task_id": "1",
+            "job_id": "2373",
+            "node": "civo-h200-6",
+            "gpu": "NVIDIA H200 NVL"
+          },
+          "completed_at": "2026-08-02T18:49:37.593833+00:00"
+        }
+      },
+      "checkpoint": "checkpoint-5160",
+      "epoch": 6,
+      "adapter_sha256": "92556248ad9e8a82b7f1d295bac3c32f0984e7e247ef1a74499e7134032b73cb",
+      "inference_job": "2373",
+      "hardware_requirement": "NVIDIA H200",
+      "code_sha256_at_validation": {
+        "track-segment/baseline/src/runner.py": "ad2ba342280836f802562f941c6bb66a4d9a067bd02b29d633b8286f7479a281",
+        "src/prompts.py": "1db7f1c0c543343f78ead39f79044efae761ff404989f9c3d7493e441591e0ea",
+        "src/adapter.py": "e83897b284528e64563e8e620ba4e33484ebb7dd1cdbd9dc117d13ed72d1846f",
+        "track-segment/lora-finetune/scripts/full_test_h200.slurm": "17df8aa11b61a3572172b7f78eacc9b11a8f07718717416c1079a95ec6d7e708"
+      },
+      "validated_at": "2026-08-02T19:37:14.699098+00:00"
+    },
+    "inference_errors": 0,
+    "timed_out_rows": 0,
+    "multi_value_behavior": "FO-class prompts request all applicable classes and the normalizer preserves all recognized classes; time prompts and normalization preserve all returned timestamps."
+  },
+  "official_metric": {
+    "point_estimate": "mean of per-video question-level correctness means",
+    "confidence_interval": "official two-level hierarchical bootstrap: resample videos, then questions within video; 1000 samples, seed 42, percentile 95%",
+    "pre_evaluation_score": "unweighted mean over populated primary capability-group x OOD buckets",
+    "primary_source": "each dataset's eval/summary.csv",
+    "orena_focus_version": "0.3.4"
+  },
+  "submission_equivalence": {
+    "weights_identical": true,
+    "prompt_and_cardinality_normalization_aligned": true,
+    "exact_container_rerun": false,
+    "note": "The repository runner and packaged submission share the selected weights, sampling limits, prompts, and answer normalization. This run used the repository evaluation path rather than invoking the built container contract."
+  },
+  "checkpoint_selection_artifacts": {
+    "scope": "fixed seed-42 500-row subset only",
+    "history_table": "checkpoint-selection.csv",
+    "epoch_6_vs_8_paired_table": "checkpoint-epoch6-vs-epoch8-paired.csv"
+  },
+  "cardinality": {
+    "multi_value_gold_rows_by_scope": {
+      "heico:fo_class": 76,
+      "heico:time": 23,
+      "heico:multiple_choice_multi_select": 103,
+      "lapchole:fo_class": 180,
+      "lapchole:time": 16,
+      "lapchole:multiple_choice_multi_select": 101
+    }
+  },
+  "git_commit": "433850fe99bd3ddecd5b06856a778708531a7c3e",
+  "source_sha256": {
+    "track-segment/lora-finetune/logs/Qwen3-VL-4B-Instruct-both-official/full_test_epoch_6/run_manifest.json": "f528635e3d6be7aff67304030b0b8ab37eb0497ae7b42c51c90bbcfba587cbff",
+    "track-segment/lora-finetune/logs/Qwen3-VL-4B-Instruct-both-official/eval_subset_qids.json": "4ecaa3ddcd733eb5e830796ada70a40d3bb872d2150466e8c3e8a30b6c6c1a8f",
+    "track-segment/lora-finetune/logs/Qwen3-VL-4B-Instruct-both-official/epoch_metrics.csv": "6f695849ce77a3e36e8a52babb0424d9e9ce58d7b1f205ba98cbb580d5c9258b",
+    "track-segment/lora-finetune/logs/Qwen3-VL-4B-Instruct-both-official/train_meta.json": "d88dc198c5713190d28431bd472702bc71f490bf0761270c22046ec23d33cf3f",
+    "track-segment/lora-finetune/logs/Qwen3-VL-4B-Instruct-both-official/checkpoint-5160/adapter_config.json": "24173bc160e390b354177828915aa15f05cb78c299677e46e3503ccceae34683",
+    "track-segment/lora-finetune/logs/Qwen3-VL-4B-Instruct-both-official/checkpoint-5160/adapter_model.safetensors": "92556248ad9e8a82b7f1d295bac3c32f0984e7e247ef1a74499e7134032b73cb",
+    "submissions/segment/qwen3-vl-4b-lora-both-official-epoch6-20260801/provenance.json": "a1ea9e5d1680eb6495c9e8acedfaf3849981075b47263f9f66faf0aa32ee1686",
+    "src/prompts.py": "1db7f1c0c543343f78ead39f79044efae761ff404989f9c3d7493e441591e0ea",
+    "src/adapter.py": "e83897b284528e64563e8e620ba4e33484ebb7dd1cdbd9dc117d13ed72d1846f",
+    "track-segment/baseline/src/runner.py": "ad2ba342280836f802562f941c6bb66a4d9a067bd02b29d633b8286f7479a281",
+    "track-segment/lora-finetune/scripts/full_test_h200.slurm": "17df8aa11b61a3572172b7f78eacc9b11a8f07718717416c1079a95ec6d7e708",
+    "scripts/summarize_segment_full_test.py": "540dce6381e88515e52a872f3bd8f9f12aea2e2f1e891c15d0eabbf87aa2b4f9",
+    "scripts/summarize_segment_epoch6_subset.py": "fe136a21b721f1e1d7a7e1f2eeb96541c5515c5edf56892df53c2f9ac082931e",
+    "result-summary/segment/qwen3-vl-4b-lora-both-official-epoch6-seeded-test-subset/dataset-overall.csv": "b8d0de7f65de860bfa0341a1bc5b8c5b5ac2aad8b776f5d6378bf0ccec4dd8ae",
+    "result-summary/segment/qwen3-vl-4b-lora-both-official-epoch6-seeded-test-subset/capability-group.csv": "24a9328e32e0426f5a5e626a864be8bb88d10cc9a422671c3f52a2362b33c6af",
+    "result-summary/segment/qwen3-vl-4b-lora-both-official-epoch6-seeded-test-subset/answer-format.csv": "dc3490fde70c8a66787d061f0d55c50d7e54f12c87d330755f798a9f8f27cc61",
+    "track-segment/lora-finetune/logs/Qwen3-VL-4B-Instruct-both-official/eval_epoch_1/heico/eval/summary.csv": "f10c43e3fca1bf29a1be318f25cdffc2a33de50df00e63acbc19b15d4ba7aaa6",
+    "track-segment/lora-finetune/logs/Qwen3-VL-4B-Instruct-both-official/eval_epoch_1/lapchole/eval/summary.csv": "b48c07555ad430084dcb1b0c63a86786bb63385a2e58a119049d4b89ecda1599",
+    "track-segment/lora-finetune/logs/Qwen3-VL-4B-Instruct-both-official/eval_epoch_10/heico/eval/summary.csv": "270feef26479906418bc4aeb81015965d9b8cc9cd5f0e57772a53789d10ac521",
+    "track-segment/lora-finetune/logs/Qwen3-VL-4B-Instruct-both-official/eval_epoch_10/lapchole/eval/summary.csv": "a62bc93d26a757f17a6650edb12761631113e05f4d0c4a7a54f65e851549c372",
+    "track-segment/lora-finetune/logs/Qwen3-VL-4B-Instruct-both-official/eval_epoch_11/heico/eval/summary.csv": "1e7c45ad99102750e3586e26ce163bb63628c8fd2d6d8bd28231e1fbf8eadc6c",
+    "track-segment/lora-finetune/logs/Qwen3-VL-4B-Instruct-both-official/eval_epoch_11/lapchole/eval/summary.csv": "e3927880b330195626279586107fe363d3bceec8463740fdb72112651b0d7547",
+    "track-segment/lora-finetune/logs/Qwen3-VL-4B-Instruct-both-official/eval_epoch_12/heico/eval/summary.csv": "2f9aa2c81bea654d793ed55071ad5192de5e06057e953f3b7344801debb3cfd2",
+    "track-segment/lora-finetune/logs/Qwen3-VL-4B-Instruct-both-official/eval_epoch_12/lapchole/eval/summary.csv": "dfe18fc181ad61e2202d4b16adc48b79e783504bf95ade7a1bf34578be63a9fc",
+    "track-segment/lora-finetune/logs/Qwen3-VL-4B-Instruct-both-official/eval_epoch_2/heico/eval/summary.csv": "d9657b4e2472948a96803ba23139277fddb71864e1886c29f84496960beb9708",
+    "track-segment/lora-finetune/logs/Qwen3-VL-4B-Instruct-both-official/eval_epoch_2/lapchole/eval/summary.csv": "ae8fb9938850c7a0fd0212639b0dbf3cc58568db0fd7e3bdc1748395b7d2a46c",
+    "track-segment/lora-finetune/logs/Qwen3-VL-4B-Instruct-both-official/eval_epoch_3/heico/eval/summary.csv": "562d5cb8047c94f4307b14842f52f80fd24a55a9aa74f45a211c7a0b461c34e3",
+    "track-segment/lora-finetune/logs/Qwen3-VL-4B-Instruct-both-official/eval_epoch_3/lapchole/eval/summary.csv": "90b00109120eb2151806f79cd0cbbafa1fbf9ae748929610f64351075cae605a",
+    "track-segment/lora-finetune/logs/Qwen3-VL-4B-Instruct-both-official/eval_epoch_4/heico/eval/summary.csv": "304f2f944d660aa02aa282e5ce6b6fa6cab8f8844c49551e50052406a1809ea7",
+    "track-segment/lora-finetune/logs/Qwen3-VL-4B-Instruct-both-official/eval_epoch_4/lapchole/eval/summary.csv": "a2c8eefd5e161a08289c5e17246093ff3f625298ad0397d45bc260f8cc505446",
+    "track-segment/lora-finetune/logs/Qwen3-VL-4B-Instruct-both-official/eval_epoch_6/heico/eval/summary.csv": "6c8b3de7c0ccb4eb33a0b491d09ec66ff6abcdc04dd7dcdb63dea594bca3f364",
+    "track-segment/lora-finetune/logs/Qwen3-VL-4B-Instruct-both-official/eval_epoch_6/lapchole/eval/summary.csv": "c6b47764b61f6d3fe845a3b16d713a09539823a66fff3ef6d44e44b3c2587c55",
+    "track-segment/lora-finetune/logs/Qwen3-VL-4B-Instruct-both-official/eval_epoch_7/heico/eval/summary.csv": "6106c2d7aa5377de1cf5116c02d3ff9a915432e7475272623a35024c01736cb0",
+    "track-segment/lora-finetune/logs/Qwen3-VL-4B-Instruct-both-official/eval_epoch_7/lapchole/eval/summary.csv": "524e89f84e99cdeee67e31e83729952996896f5665117b8ed1e1157c8788fc00",
+    "track-segment/lora-finetune/logs/Qwen3-VL-4B-Instruct-both-official/eval_epoch_8/heico/eval/summary.csv": "ff8c4e2d475254b01a4a68568fceea8772a22e3569470774807fcc558ec9cdb3",
+    "track-segment/lora-finetune/logs/Qwen3-VL-4B-Instruct-both-official/eval_epoch_8/lapchole/eval/summary.csv": "73ee3040a862ddbc68e623acf113704094934635aae506491ac4dd215a8e9c3b",
+    "track-segment/lora-finetune/logs/Qwen3-VL-4B-Instruct-both-official/full_test_epoch_6/heico/run_manifest.json": "9f92da58a1ba6b70811f21e475d9115adfd6b78d71c42508c596dd2b2f8ec4e8",
+    "track-segment/lora-finetune/logs/Qwen3-VL-4B-Instruct-both-official/full_test_epoch_6/heico/predictions.parquet": "98d609709c1e42a5e9ef27401efff4399fb482e20d5f2291b0a17373cacca451",
+    "track-segment/lora-finetune/logs/Qwen3-VL-4B-Instruct-both-official/full_test_epoch_6/heico/responses.json": "a822e5d3f367090d701b231ac4ab56d1d7b695df6c9f1f440726722e6a22f2c4",
+    "track-segment/lora-finetune/logs/Qwen3-VL-4B-Instruct-both-official/full_test_epoch_6/heico/eval/results.csv": "356af94a999074cf65f316486aeeb8e77c47d8ebe96f80f6f6a4abd072ba90c2",
+    "track-segment/lora-finetune/logs/Qwen3-VL-4B-Instruct-both-official/full_test_epoch_6/heico/eval/summary.csv": "80d59c867370553e7161623fc5eeeddb6b7d36484fa79079e691aea99a136ffa",
+    "track-segment/lora-finetune/logs/Qwen3-VL-4B-Instruct-both-official/eval_epoch_6/heico/eval/results.csv": "6255418974175b8f82a7ed67a06339ee3125b99fec4ebeca3dd1afc2864ce459",
+    "track-segment/lora-finetune/logs/Qwen3-VL-4B-Instruct-both-official/eval_epoch_8/heico/eval/results.csv": "614cd27ddfac312fbbc22e0f4a45ca9ad9e4a65e16a499905e5d0494763e6b3c",
+    "data/parquet/segment/test/0000.parquet": "5bd3708b562e018948c4c8cd78c10d85d4fe66b4e30930e55b5d637de652e657",
+    "track-segment/lora-finetune/logs/Qwen3-VL-4B-Instruct-both-official/full_test_epoch_6/lapchole/run_manifest.json": "ec7d600becb6bde2c0f68e6a4fe247feb879b8ac0339f8c5017a4382ab0f179b",
+    "track-segment/lora-finetune/logs/Qwen3-VL-4B-Instruct-both-official/full_test_epoch_6/lapchole/predictions.parquet": "a63f965a10338ee54cde4fbc8194e708567a6e617ee98954d91cb49aad2e4ed6",
+    "track-segment/lora-finetune/logs/Qwen3-VL-4B-Instruct-both-official/full_test_epoch_6/lapchole/responses.json": "8022b19422f567205b3e20c6096a1a283796547eaa062bcd9d64719a0a229d6f",
+    "track-segment/lora-finetune/logs/Qwen3-VL-4B-Instruct-both-official/full_test_epoch_6/lapchole/eval/results.csv": "24933f3b87c0ab5f423c1fc4bbbba8486e70fb1d5d12061b4915e3f5a89db28d",
+    "track-segment/lora-finetune/logs/Qwen3-VL-4B-Instruct-both-official/full_test_epoch_6/lapchole/eval/summary.csv": "cc2639e305194c4f350e1aab204437ec176cb1c827e867245f0d926156d37c60",
+    "track-segment/lora-finetune/logs/Qwen3-VL-4B-Instruct-both-official/eval_epoch_6/lapchole/eval/results.csv": "fb8302766363808b272afb37dfcd4854ddd953a75fa6e8163a5afa26ca04734d",
+    "track-segment/lora-finetune/logs/Qwen3-VL-4B-Instruct-both-official/eval_epoch_8/lapchole/eval/results.csv": "258e4604807d8f44d0d4cf0e523569a70cac00ef0185e81a5097f353ffd9c908",
+    "data/parquet/lapchole/segment/test/0000.parquet": "da6b6a239a030690fd8702c8f06ce49c649ee16eccc5440599a65687f5dc2a75"
+  }
+}

@@ -4,7 +4,13 @@ import unittest
 
 from focus import get_format_class
 
-from src.adapter import build_response, normalize_answer, normalize_fo_class
+from src.adapter import (
+    build_response,
+    normalize_answer,
+    normalize_fo_class,
+    normalize_time,
+)
+from src.prompts import build_instruction
 
 
 class FOClassAdapterTest(unittest.TestCase):
@@ -57,6 +63,32 @@ class FOClassAdapterTest(unittest.TestCase):
             "fo_class",
         )
         self.assert_same_set(response.content, "Clip, Sponge")
+
+    def test_prompt_allows_multiple_classes(self) -> None:
+        instruction, _ = build_instruction("Which objects are visible?", "fo_class")
+        self.assertIn("one or more", instruction)
+        self.assertIn("Separate multiple names", instruction)
+
+
+class TimeAdapterTest(unittest.TestCase):
+    def test_preserves_multiple_timestamps(self) -> None:
+        self.assertEqual(
+            normalize_time("Events occur at 0:02:03 and 01:04:05."),
+            "00:02:03, 01:04:05",
+        )
+
+    def test_build_response_keeps_all_timestamps(self) -> None:
+        response = build_response(
+            "q002",
+            "00:00:07, then 00:00:12",
+            "time",
+        )
+        self.assertEqual(response.content, "00:00:07, 00:00:12")
+
+    def test_prompt_allows_multiple_timestamps(self) -> None:
+        instruction, _ = build_instruction("When do the events occur?", "time")
+        self.assertIn("one or more timestamps", instruction)
+        self.assertIn("Separate multiple timestamps", instruction)
 
 
 if __name__ == "__main__":

@@ -8,7 +8,7 @@ format classes are strict:
 - ``fo_class``        -> one or more comma-separated canonical FO names
   (case- and order-insensitive) or ``"none"``
 - ``percentage``      -> a bare number
-- ``time``            -> ``hh:mm:ss``
+- ``time``            -> one or more comma-separated ``hh:mm:ss`` timestamps
 - ``open_ended`` / ``multiple_choice`` / ``matching`` -> judged by an LLM, but
   ``read`` still verifies ``len <= max_length`` (300) first, so we strip + truncate.
 
@@ -143,10 +143,12 @@ def normalize_percentage(text) -> str:
 
 
 def normalize_time(text) -> str:
-    m = re.search(r"(\d{1,2}):([0-5]?\d):([0-5]?\d)", str(text))
-    if m:
-        h, mn, s = (int(x) for x in m.groups())
-        return f"{h:02d}:{mn:02d}:{s:02d}"
+    matches = re.findall(r"(\d{1,2}):([0-5]?\d):([0-5]?\d)", str(text))
+    if matches:
+        return ", ".join(
+            f"{int(h):02d}:{int(mn):02d}:{int(s):02d}"
+            for h, mn, s in matches
+        )
     return _clean(text)
 
 

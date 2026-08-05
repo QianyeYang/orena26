@@ -3,23 +3,51 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>ORena FOCUS — latest Frame results</title>
+  <title>ORena FOCUS — prediction visualiser</title>
   <link rel="stylesheet" href="/static/style.css" />
 </head>
 <body>
   <header id="topbar">
+    <div class="row app-shell">
+      <div class="brand-lockup">
+        <span class="brand-mark" aria-hidden="true">OF</span>
+        <span>
+          <span class="brand-kicker">ORena FOCUS</span>
+          <strong>Evaluation explorer</strong>
+        </span>
+      </div>
+      <nav id="trackNav" class="track-nav" aria-label="Challenge track">
+        <button class="track-tab" type="button" data-track="frame" aria-selected="false">
+          <span class="track-glyph" aria-hidden="true">▣</span>
+          <span><strong>Frame</strong><small>single image</small></span>
+        </button>
+        <button class="track-tab" type="button" data-track="segment" aria-selected="false">
+          <span class="track-glyph" aria-hidden="true">▶</span>
+          <span><strong>Segment</strong><small>bounded clip</small></span>
+        </button>
+        <button class="track-tab" type="button" data-track="procedure" aria-selected="false">
+          <span class="track-glyph" aria-hidden="true">◎</span>
+          <span><strong>Procedure</strong><small>video history</small></span>
+        </button>
+      </nav>
+      <span id="counts" class="counts"></span>
+    </div>
+
     <div class="row primary">
-      <strong class="brand">ORena&nbsp;FOCUS · latest Frame model</strong>
-      <label>Dataset
-        <select id="splitSel"></select>
+      <div class="track-context">
+        <span id="trackEyebrow" class="track-eyebrow">Frame track</span>
+        <strong id="trackTitle">Frame predictions</strong>
+        <span id="trackDescription">Inspect single-frame visual questions and model outputs.</span>
+      </div>
+      <label class="dataset-control">Dataset / split
+        <select id="splitSel" aria-label="Dataset and split"></select>
       </label>
       <div class="views">
-        <button id="viewMatrix" class="viewbtn active">Matrix</button>
-        <button id="viewStats" class="viewbtn">Capabilities</button>
-        <button id="viewCase" class="viewbtn">Case</button>
+        <button id="viewMatrix" class="viewbtn active" type="button">Matrix</button>
+        <button id="viewStats" class="viewbtn" type="button">Capabilities</button>
+        <button id="viewCase" class="viewbtn" type="button">Case</button>
       </div>
       <input id="search" type="search" placeholder="search question text…" />
-      <span id="counts" class="counts"></span>
     </div>
 
     <div class="row filters">
@@ -81,6 +109,33 @@
       <div id="caseBody"></div>
     </section>
   </main>
+
+  <div id="videoModal" class="video-modal hidden" role="dialog" aria-modal="true"
+       aria-labelledby="videoTitle" aria-hidden="true">
+    <div id="videoBackdrop" class="video-backdrop"></div>
+    <div class="video-dialog">
+      <div class="video-header">
+        <div>
+          <strong id="videoTitle">Track video</strong>
+          <div id="videoSubtitle" class="video-subtitle"></div>
+        </div>
+        <button id="closeVideo" class="video-close" type="button" aria-label="Close video">×</button>
+      </div>
+      <video id="trackVideo" controls playsinline preload="none"></video>
+      <div class="video-toolbar">
+        <button id="seekVideoStart" type="button">video start</button>
+        <button type="button" data-seek-relative="-30">−30 s</button>
+        <button type="button" data-seek-relative="-5">−5 s</button>
+        <button id="seekRangeStart" type="button">range start</button>
+        <button id="seekRangeEnd" type="button">range end</button>
+        <button id="playSegment" class="hidden" type="button" disabled>▶ play segment</button>
+        <button type="button" data-seek-relative="5">+5 s</button>
+        <button type="button" data-seek-relative="30">+30 s</button>
+        <span id="videoStatus" class="video-status" aria-live="polite">Video data loads only after this overlay opens.</span>
+        <a id="openVideoDirect" href="#" target="_blank" rel="noopener">open directly</a>
+      </div>
+    </div>
+  </div>
 
   <script src="/static/app.js"></script>
 </body>

@@ -1,0 +1,13 @@
+dataset,dimension,value,rows,videos,correct,micro_accuracy,video_macro_accuracy
+heico,generation,anchor,802,10,262,0.326683292,0.368486840
+heico,generation,automatic,1188,10,354,0.297979798,0.298915193
+heico,generation,manual,10,5,5,0.500000000,0.533333333
+heico,clinical_relevance,false,1980,10,606,0.306060606,0.306044412
+heico,clinical_relevance,true,20,10,15,0.750000000,0.750000000
+heico,ood,false,2000,10,621,0.310500000,0.310500000
+lapchole,generation,anchor,452,28,286,0.632743363,0.653306711
+lapchole,generation,automatic,549,28,243,0.442622951,0.468331512
+lapchole,generation,manual,126,28,81,0.642857143,0.673987322
+lapchole,clinical_relevance,false,1126,28,610,0.541740675,0.541664593
+lapchole,clinical_relevance,true,1,1,0,0.000000000,0.000000000
+lapchole,ood,false,1127,28,610,0.541259982,0.541207276

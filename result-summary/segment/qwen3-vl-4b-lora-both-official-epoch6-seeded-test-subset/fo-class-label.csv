@@ -1,0 +1,15 @@
+dataset,label,gold_support_rows,predicted_positive_rows,true_positive_rows,label_recall,label_precision
+heico,clip,23,23,21,0.913043478,0.913043478
+heico,external drain,15,15,15,1.000000000,1.000000000
+heico,needle,7,7,7,1.000000000,1.000000000
+heico,silicone loop,0,1,0,,0.000000000
+heico,specimen,1,0,0,0.000000000,
+heico,specimen bag,1,0,0,0.000000000,
+heico,sponge,22,22,20,0.909090909,0.909090909
+lapchole,clip,26,25,23,0.884615385,0.920000000
+lapchole,gallstone,1,1,1,1.000000000,1.000000000
+lapchole,needle,2,0,0,0.000000000,
+lapchole,silicone loop,0,1,0,,0.000000000
+lapchole,specimen,25,25,21,0.840000000,0.840000000
+lapchole,specimen bag,11,13,10,0.909090909,0.769230769
+lapchole,sponge,16,16,15,0.937500000,0.937500000

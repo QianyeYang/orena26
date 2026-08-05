@@ -22,6 +22,7 @@ HERE = Path(__file__).resolve().parent
 REPO = HERE.parents[2]
 sys.path.insert(0, str(REPO))  # shared `src`
 
+from src.paths import DATASETS  # noqa: E402
 from src.videovqa import run_video_qa  # noqa: E402
 
 logging.basicConfig(
@@ -31,6 +32,7 @@ logging.basicConfig(
 
 def main() -> None:
     ap = argparse.ArgumentParser(description="PROCEDURE zero-shot multi-frame VLM runner")
+    ap.add_argument("--dataset", default="heico", choices=DATASETS)
     ap.add_argument("--track", default="procedure")
     ap.add_argument("--split", default="test")
     ap.add_argument("--model", required=True, help="local path to the model dir")
@@ -48,7 +50,8 @@ def main() -> None:
     a = ap.parse_args()
 
     run_video_qa(
-        track=a.track, split=a.split, model_path=a.model, model_name=a.model_name,
+        dataset=a.dataset, track=a.track, split=a.split,
+        model_path=a.model, model_name=a.model_name,
         out_dir=a.out, stride=a.stride, max_frames=a.max_frames,
         frames_folder=a.frames_folder, limit=a.limit, max_new_tokens=a.max_new_tokens,
         dtype=a.dtype, min_pixels=a.min_pixels, max_pixels=a.max_pixels,

@@ -1,0 +1,3 @@
+dataset,rows,videos,correct,micro_accuracy,video_macro_accuracy,official_video_macro_accuracy,ci_low,ci_high,pre_evaluation_score,clinical_rows,ood_rows,timed_out_rows,inference_error_rows
+heico,2000,10,621,0.310500000,0.310500000,0.310500000,0.282475000,0.339500000,0.528165614,20,0,0,0
+lapchole,1127,28,610,0.541259982,0.541207276,0.541207276,0.486924672,0.597039416,0.578933571,1,0,0,0

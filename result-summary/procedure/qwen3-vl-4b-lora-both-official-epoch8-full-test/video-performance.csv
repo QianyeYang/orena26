@@ -1,0 +1,39 @@
+dataset,video,rows,videos,correct,micro_accuracy,video_macro_accuracy
+heico,0020 - Heico - Sigma - 1.avi,200,1,68,0.340000000,0.340000000
+heico,0021 - Heico - Sigma - 2.avi,200,1,69,0.345000000,0.345000000
+heico,0022 - Heico - Sigma - 3.avi,200,1,65,0.325000000,0.325000000
+heico,0023 - Heico - Sigma - 4.avi,200,1,61,0.305000000,0.305000000
+heico,0024 - Heico - Sigma - 5.avi,200,1,48,0.240000000,0.240000000
+heico,0025 - Heico - Sigma - 6.avi,200,1,64,0.320000000,0.320000000
+heico,0026 - Heico - Sigma - 7.avi,200,1,66,0.330000000,0.330000000
+heico,0027 - Heico - Sigma - 8.avi,200,1,52,0.260000000,0.260000000
+heico,0028 - Heico - Sigma - 9.avi,200,1,65,0.325000000,0.325000000
+heico,0029 - Heico - Sigma - 10.avi,200,1,63,0.315000000,0.315000000
+lapchole,0000 - Laparoscopic Cholecystectomy.mp4,41,1,18,0.439024390,0.439024390
+lapchole,0004 - Laparoscopic Cholecystectomy.mp4,40,1,30,0.750000000,0.750000000
+lapchole,0016 - Laparoscopic Cholecystectomy.mp4,40,1,14,0.350000000,0.350000000
+lapchole,0017 - Laparoscopic Cholecystectomy.mp4,41,1,21,0.512195122,0.512195122
+lapchole,0019 - Laparoscopic Cholecystectomy.mp4,41,1,22,0.536585366,0.536585366
+lapchole,0026 - Laparoscopic Cholecystectomy.mp4,40,1,27,0.675000000,0.675000000
+lapchole,0027 - Laparoscopic Cholecystectomy.mp4,40,1,20,0.500000000,0.500000000
+lapchole,0028 - Laparoscopic Cholecystectomy.mp4,41,1,21,0.512195122,0.512195122
+lapchole,0032 - Laparoscopic Cholecystectomy.mp4,40,1,21,0.525000000,0.525000000
+lapchole,0033 - Laparoscopic Cholecystectomy.mp4,40,1,20,0.500000000,0.500000000
+lapchole,0043 - Laparoscopic Cholecystectomy.mp4,40,1,28,0.700000000,0.700000000
+lapchole,0045 - Laparoscopic Cholecystectomy.mp4,40,1,19,0.475000000,0.475000000
+lapchole,0048 - Laparoscopic Cholecystectomy.mp4,42,1,26,0.619047619,0.619047619
+lapchole,0060 - Laparoscopic Cholecystectomy.mp4,40,1,22,0.550000000,0.550000000
+lapchole,0061 - Laparoscopic Cholecystectomy.mp4,40,1,30,0.750000000,0.750000000
+lapchole,0065 - Laparoscopic Cholecystectomy.mp4,40,1,18,0.450000000,0.450000000
+lapchole,0066 - Laparoscopic Cholecystectomy.mp4,40,1,12,0.300000000,0.300000000
+lapchole,0070 - Laparoscopic Cholecystectomy.mp4,40,1,14,0.350000000,0.350000000
+lapchole,0072 - Laparoscopic Cholecystectomy.mp4,40,1,24,0.600000000,0.600000000
+lapchole,0074 - Laparoscopic Cholecystectomy.mp4,40,1,16,0.400000000,0.400000000
+lapchole,0078 - Laparoscopic Cholecystectomy.mp4,40,1,26,0.650000000,0.650000000
+lapchole,0079 - Laparoscopic Cholecystectomy.mp4,40,1,27,0.675000000,0.675000000
+lapchole,0089 - Laparoscopic Cholecystectomy.mp4,40,1,14,0.350000000,0.350000000
+lapchole,0093 - Laparoscopic Cholecystectomy.mp4,40,1,19,0.475000000,0.475000000
+lapchole,0100 - Laparoscopic Cholecystectomy.mp4,40,1,20,0.500000000,0.500000000
+lapchole,0149 - Laparoscopic Cholecystectomy.mp4,41,1,25,0.609756098,0.609756098
+lapchole,0158 - Laparoscopic Cholecystectomy.mp4,40,1,25,0.625000000,0.625000000
+lapchole,0183 - Laparoscopic Cholecystectomy.mp4,40,1,31,0.775000000,0.775000000

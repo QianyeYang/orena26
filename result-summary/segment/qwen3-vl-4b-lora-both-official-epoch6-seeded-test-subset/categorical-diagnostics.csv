@@ -1,0 +1,9 @@
+dataset,answer_format,subtype,value,rows,videos,correct,micro_accuracy,video_macro_accuracy
+heico,binary,gold_value,no,8,6,7,0.875000000,0.833333333
+heico,binary,gold_value,yes,10,7,9,0.900000000,0.857142857
+heico,multiple_choice,selection_type,multi_select,14,8,8,0.571428571,0.604166667
+heico,multiple_choice,selection_type,single_select,19,7,15,0.789473684,0.809523810
+lapchole,binary,gold_value,no,6,5,6,1.000000000,1.000000000
+lapchole,binary,gold_value,yes,6,6,4,0.666666667,0.666666667
+lapchole,multiple_choice,selection_type,multi_select,14,11,14,1.000000000,1.000000000
+lapchole,multiple_choice,selection_type,single_select,18,13,14,0.777777778,0.807692308

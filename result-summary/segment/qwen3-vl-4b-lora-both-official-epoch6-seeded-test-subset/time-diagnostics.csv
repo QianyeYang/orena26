@@ -1,0 +1,6 @@
+dataset,scope,name,rows,videos,correct,micro_accuracy,video_macro_accuracy,gold_multi_timestamp_rows,raw_multi_timestamp_rows,normalized_multi_timestamp_rows,raw_cardinality_match_rate,normalized_cardinality_match_rate,single_gold_rows,single_gold_with_parsed_prediction_rows,single_gold_median_absolute_error_sec,single_gold_p90_absolute_error_sec,single_gold_within_5_sec_rate,single_gold_within_30_sec_rate
+heico,dataset,all_time,138,10,84,0.608695652,0.593327439,2,1,0,0.978260870,0.985507246,136,136,1.000000000,13.500000000,0.750000000,0.970588235
+heico,primary_capability,temporal_localization,125,10,80,0.640000000,0.629218314,2,1,0,0.976000000,0.984000000,123,123,1.000000000,12.000000000,0.780487805,0.967479675
+heico,primary_capability,duration_estimation,13,9,4,0.307692308,0.166666667,0,0,0,1.000000000,1.000000000,13,13,6.000000000,20.400000000,0.461538462,1.000000000
+lapchole,dataset,all_time,55,23,31,0.563636364,0.573188406,0,0,0,1.000000000,1.000000000,55,55,3.000000000,13.600000000,0.745454545,0.963636364
+lapchole,primary_capability,temporal_localization,55,23,31,0.563636364,0.573188406,0,0,0,1.000000000,1.000000000,55,55,3.000000000,13.600000000,0.745454545,0.963636364

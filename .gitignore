@@ -157,7 +157,7 @@ data/
 os-models/
 
 # Upstream submission template checkout (separate Git repository)
-/submissions/orena-focus-submission-template/
+/submissions/*
 
 # Logs and checkpoints (shared + per-method)
 logs/

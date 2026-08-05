@@ -141,8 +141,9 @@ def build_instruction(
     elif answer_format == "fo_class":
         names = ", ".join(FO_NAMES)
         instr = (
-            f"{question}\n\nAnswer with EXACTLY ONE of these foreign-object names: "
-            f"{names}. If none is visible, answer: none. Output only the name."
+            f"{question}\n\nAnswer with one or more of these foreign-object names: "
+            f"{names}. Separate multiple names with a comma and a space. If none "
+            "is visible, answer: none. Output only the name(s)."
         )
     elif answer_format == "multiple_choice":
         options = parse_mc_options(question)
@@ -160,7 +161,10 @@ def build_instruction(
     elif answer_format == "percentage":
         instr = f"{question}\n\nAnswer with a single number (a percentage)."
     elif answer_format == "time":
-        instr = f"{question}\n\nAnswer with a timestamp as hh:mm:ss."
+        instr = (
+            f"{question}\n\nAnswer with one or more timestamps as hh:mm:ss. "
+            "Separate multiple timestamps with a comma and a space."
+        )
     else:  # open_ended, matching, unknown
         instr = f"{question}\n\nAnswer concisely, in a few words."
 

@@ -1,0 +1,8 @@
+dataset,answer_format,scope,name,rows,videos,correct,micro_accuracy,video_macro_accuracy,parsed_rows,mean_absolute_error,median_absolute_error,underprediction_rate,exact_numeric_rate,overprediction_rate
+heico,number,dataset,all,45,10,28,0.622222222,0.616135531,45,0.711111111,0.000000000,0.222222222,0.622222222,0.155555556
+heico,number,primary_capability,object_aggregation,31,10,21,0.677419355,0.637500000,31,0.387096774,0.000000000,0.193548387,0.677419355,0.129032258
+heico,number,primary_capability,event_aggregation,14,5,7,0.500000000,0.476666667,14,1.428571429,0.500000000,0.285714286,0.500000000,0.214285714
+heico,percentage,dataset,all,2,2,0,0.000000000,0.000000000,2,10.005000000,10.005000000,0.500000000,0.000000000,0.500000000
+heico,percentage,primary_capability,duration_estimation,2,2,0,0.000000000,0.000000000,2,10.005000000,10.005000000,0.500000000,0.000000000,0.500000000
+lapchole,number,dataset,all,0,0,0,,,0,,,,,
+lapchole,percentage,dataset,all,0,0,0,,,0,,,,,

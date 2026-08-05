@@ -1,0 +1,7 @@
+dataset,scope,name,rows,recorded_correct,posthoc_v2_normalizer_correct,recorded_micro_accuracy,posthoc_v2_normalizer_micro_accuracy,micro_delta,recorded_video_macro_accuracy,posthoc_v2_normalizer_video_macro_accuracy,video_macro_delta,newly_correct_rows,newly_incorrect_rows
+heico,dataset,all_time,767,83,83,0.108213820,0.108213820,0.000000000,0.107288329,0.107288329,0.000000000,0,0
+heico,primary_capability,temporal_localization,699,81,81,0.115879828,0.115879828,0.000000000,0.114789210,0.114789210,0.000000000,0,0
+heico,primary_capability,duration_estimation,68,2,2,0.029411765,0.029411765,0.000000000,0.032500000,0.032500000,0.000000000,0,0
+lapchole,dataset,all_time,414,106,106,0.256038647,0.256038647,0.000000000,0.280684094,0.280684094,0.000000000,0,0
+lapchole,primary_capability,temporal_localization,388,103,103,0.265463918,0.265463918,0.000000000,0.285043793,0.285043793,0.000000000,0,0
+lapchole,primary_capability,duration_estimation,26,3,3,0.115384615,0.115384615,0.000000000,0.114583333,0.114583333,0.000000000,0,0

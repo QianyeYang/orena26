@@ -38,6 +38,11 @@ def video_dir(dataset: str = DATASET) -> Path:
     return dataset_dir(dataset) / "videos"
 
 
+def video_proxy_dir(dataset: str = DATASET) -> Path:
+    """Folder of browser-compatible 480p MP4 proxies, when required."""
+    return dataset_dir(dataset) / "video-proxies-480p"
+
+
 def frames_root(folder: str = "frames", dataset: str = DATASET) -> Path:
     """Root of extracted frames; `folder` selects a variant (e.g. plain vs overlay)."""
     return dataset_dir(dataset) / folder

@@ -1,0 +1,17 @@
+dataset,label,gold_support_rows,predicted_positive_rows,true_positive_rows,label_recall,label_precision
+heico,clip,253,308,222,0.877470356,0.720779221
+heico,external drain,180,183,178,0.988888889,0.972677596
+heico,needle,106,94,89,0.839622642,0.946808511
+heico,silicone loop,0,8,0,,0.000000000
+heico,specimen,22,9,6,0.272727273,0.666666667
+heico,specimen bag,27,26,22,0.814814815,0.846153846
+heico,sponge,255,266,236,0.925490196,0.887218045
+lapchole,absorbable hemostatic agent,1,0,0,0.000000000,
+lapchole,clip,309,303,277,0.896440129,0.914191419
+lapchole,external drain,25,17,14,0.560000000,0.823529412
+lapchole,gallstone,26,19,11,0.423076923,0.578947368
+lapchole,needle,7,5,3,0.428571429,0.600000000
+lapchole,silicone loop,0,7,0,,0.000000000
+lapchole,specimen,223,241,202,0.905829596,0.838174274
+lapchole,specimen bag,184,189,175,0.951086957,0.925925926
+lapchole,sponge,166,163,148,0.891566265,0.907975460

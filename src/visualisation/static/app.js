@@ -2,6 +2,10 @@
 
 const S = {
   allRuns: [],          // every RunInfo from /api/runs
+  config: { initial_track: "frame", available_tracks: [] },
+  groups: [],           // unique (track, split, dataset) contexts
+  trackSelection: {},   // last selected context for each track
+  loadToken: 0,
   capabilityData: { source: "", groups: [] },
   track: null,
   split: null,
@@ -20,6 +24,24 @@ const S = {
   matrixPosition: { top: 0, left: 0, qID: "" },
 };
 
+const TRACKS = {
+  frame: {
+    title: "Frame predictions",
+    description: "Inspect single-frame visual questions and model outputs.",
+    media: "frame image",
+  },
+  segment: {
+    title: "Segment predictions",
+    description: "Review bounded video clips from their annotated start and end times.",
+    media: "video segment",
+  },
+  procedure: {
+    title: "Procedure predictions",
+    description: "Follow long-range procedural evidence through the source video.",
+    media: "procedure video",
+  },
+};
+
 const $ = (id) => document.getElementById(id);
 const esc = (s) =>
   String(s ?? "").replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
@@ -27,6 +49,98 @@ const pct = (a) => (a == null ? "—" : (a * 100).toFixed(1) + "%");
 const norm = (s) => String(s ?? "").trim().toLowerCase();
 const datasetLabel = (dataset) =>
   dataset === "heico" ? "HeiCo" : dataset === "lapchole" ? "LapChole" : dataset;
+const trackLabel = (track) =>
+  track ? track.charAt(0).toUpperCase() + track.slice(1) : "Prediction";
+
+function timestampSeconds(value) {
+  const parts = String(value ?? "").split(":").map(Number);
+  if (parts.length !== 3 || parts.some((v) => !Number.isFinite(v))) return 0;
+  return parts[0] * 3600 + parts[1] * 60 + parts[2];
+}
+
+function videoURL(qid) {
+  return (
+    `/video?track=${encodeURIComponent(S.track)}` +
+    `&split=${encodeURIComponent(S.split)}` +
+    `&dataset=${encodeURIComponent(S.dataset)}` +
+    `&qid=${encodeURIComponent(qid)}`
+  );
+}
+
+function closeVideoModal() {
+  const modal = $("videoModal");
+  const video = $("trackVideo");
+  if (!modal || modal.classList.contains("hidden")) return;
+  video.pause();
+  video.removeAttribute("src");
+  video.load(); // cancel any in-flight range request and release the media resource
+  for (const key of ["targetSeconds", "rangeStart", "rangeEnd", "rangePlayback", "track"]) {
+    delete video.dataset[key];
+  }
+  $("openVideoDirect").setAttribute("href", "#");
+  $("videoStatus").textContent = "Video closed; no source data is being transferred.";
+  modal.classList.add("hidden");
+  modal.setAttribute("aria-hidden", "true");
+  document.body.classList.remove("modal-open");
+}
+
+function seekVideo(seconds) {
+  const video = $("trackVideo");
+  if (!Number.isFinite(seconds) || !Number.isFinite(video.duration)) return;
+  video.currentTime = Math.max(0, Math.min(seconds, Math.max(video.duration - 0.05, 0)));
+}
+
+function openVideoModal(detail) {
+  const modal = $("videoModal");
+  const video = $("trackVideo");
+  const url = videoURL(detail.qID);
+  const rangeStart = timestampSeconds(detail.ts_start);
+  const rangeEnd = timestampSeconds(detail.ts_end);
+  const isSegment = S.track === "segment";
+  const target = isSegment ? rangeStart : rangeEnd;
+  const meta = TRACKS[S.track] || TRACKS.procedure;
+
+  $("videoTitle").textContent = detail.video || meta.media;
+  $("videoSubtitle").textContent = isSegment
+    ? `${datasetLabel(S.dataset)} · annotated segment ${detail.ts_start || "?"}–${detail.ts_end || "?"}`
+    : `${datasetLabel(S.dataset)} · evidence window ${detail.ts_start || "?"}–${detail.ts_end || "?"}`;
+  $("videoStatus").textContent = "Loading video metadata…";
+  $("openVideoDirect").setAttribute("href", url);
+  video.dataset.targetSeconds = String(target);
+  video.dataset.rangeStart = String(rangeStart);
+  video.dataset.rangeEnd = String(rangeEnd);
+  video.dataset.track = S.track;
+  $("seekRangeStart").textContent = isSegment ? "segment start" : "evidence start";
+  $("seekRangeEnd").textContent = isSegment ? "segment end" : "question time";
+  $("playSegment").classList.toggle("hidden", !isSegment);
+  $("playSegment").disabled = true;
+
+  modal.classList.remove("hidden");
+  modal.setAttribute("aria-hidden", "false");
+  document.body.classList.add("modal-open");
+
+  // Assigning src here (and nowhere in page rendering) guarantees that opening
+  // the overlay is the first action capable of requesting source-video bytes.
+  video.src = url;
+  video.load();
+  video.focus();
+}
+
+function playSegmentRange() {
+  const video = $("trackVideo");
+  const start = Number(video.dataset.rangeStart);
+  const end = Number(video.dataset.rangeEnd);
+  if (!Number.isFinite(start) || !Number.isFinite(end) || end <= start) return;
+  video.dataset.rangePlayback = "1";
+  seekVideo(start);
+  const playback = video.play();
+  if (playback?.catch) {
+    playback.catch(() => {
+      delete video.dataset.rangePlayback;
+      $("videoStatus").textContent = "Playback could not start automatically; press play in the video controls.";
+    });
+  }
+}
 
 function capabilityItems() {
   return S.capabilityData.groups.flatMap((group) => [group, ...(group.children || [])]);
@@ -52,37 +166,94 @@ async function getJSON(url) {
 // init
 // --------------------------------------------------------------------------- //
 async function init() {
-  [S.allRuns, S.capabilityData] = await Promise.all([
+  [S.allRuns, S.capabilityData, S.config] = await Promise.all([
     getJSON("/api/runs"),
     getJSON("/api/capabilities"),
+    getJSON("/api/config"),
   ]);
-  const groups = [
-    ...new Map(
-      S.allRuns.map((r) => [
-        [r.track, r.split, r.dataset].join("|"),
-        r,
-      ])
-    ).entries(),
-  ];
-  const sel = $("splitSel");
-  sel.innerHTML = groups
-    .map(([value, run]) => {
-      const dataset = datasetLabel(run.dataset);
-      return `<option value="${esc(value)}">${esc(dataset)} · ${run.count} cases</option>`;
-    })
-    .join("");
-  const preferred = groups.find(([value]) => value === "frame|test|heico")?.[0] || groups[0]?.[0];
-  if (!preferred) {
+  const grouped = new Map();
+  for (const run of S.allRuns) {
+    const value = [run.track, run.split, run.dataset].join("|");
+    const group = grouped.get(value) || {
+      value,
+      track: run.track,
+      split: run.split,
+      dataset: run.dataset,
+      count: 0,
+      models: 0,
+    };
+    group.count = Math.max(group.count, run.count || 0);
+    group.models += 1;
+    grouped.set(value, group);
+  }
+  S.groups = [...grouped.values()];
+  if (!S.groups.length) {
     $("matrixWrap").innerHTML = `<div class="empty">No runs found on disk.</div>`;
     return;
   }
-  sel.value = preferred;
   wireControls();
-  await loadSplit(preferred);
+  configureTrackNav();
+  const requestedTrack = new URLSearchParams(window.location.search).get("track");
+  const initialTrack = S.config.available_tracks.includes(requestedTrack)
+    ? requestedTrack
+    : S.config.initial_track;
+  await activateTrack(initialTrack || S.groups[0].track);
+}
+
+function configureTrackNav() {
+  const available = new Set(S.groups.map((group) => group.track));
+  document.querySelectorAll(".track-tab").forEach((button) => {
+    const enabled = available.has(button.dataset.track);
+    button.disabled = !enabled;
+    button.title = enabled ? `Open the ${trackLabel(button.dataset.track)} module` : "No loaded results";
+  });
+}
+
+function resetCrossTrackFilters() {
+  for (const id of ["search", "oodSel", "clinSel", "agreeSel", "focusSel"]) {
+    $(id).value = "";
+  }
+}
+
+async function activateTrack(track) {
+  const groups = S.groups.filter((group) => group.track === track);
+  if (!groups.length) return;
+  const changingTrack = Boolean(S.track && S.track !== track);
+  if (changingTrack) resetCrossTrackFilters();
+  closeVideoModal();
+
+  document.body.dataset.track = track;
+  document.querySelectorAll(".track-tab").forEach((button) => {
+    const active = button.dataset.track === track;
+    button.classList.toggle("active", active);
+    button.setAttribute("aria-selected", String(active));
+  });
+
+  const selector = $("splitSel");
+  selector.innerHTML = groups.map((group) => {
+    const modelWord = group.models === 1 ? "model" : "models";
+    const label = `${datasetLabel(group.dataset)} · ${group.split} · ${group.count.toLocaleString()} cases · ${group.models} ${modelWord}`;
+    return `<option value="${esc(group.value)}">${esc(label)}</option>`;
+  }).join("");
+  const remembered = S.trackSelection[track];
+  const preferred = groups.find((group) => group.value === remembered)
+    || groups.find((group) => group.split === "test" && group.dataset === "heico")
+    || groups[0];
+  selector.value = preferred.value;
+  await loadSplit(preferred.value);
 }
 
 async function loadSplit(value) {
+  const token = ++S.loadToken;
+  closeVideoModal();
   [S.track, S.split, S.dataset] = value.split("|");
+  S.trackSelection[S.track] = value;
+  const trackMeta = TRACKS[S.track] || TRACKS.frame;
+  document.body.dataset.track = S.track;
+  $("trackEyebrow").textContent = `${trackLabel(S.track)} track`;
+  $("trackTitle").textContent = trackMeta.title;
+  $("trackDescription").textContent = trackMeta.description;
+  document.title = `ORena FOCUS — ${trackMeta.title}`;
   S.runsForSplit = S.allRuns.filter(
     (r) => r.track === S.track && r.split === S.split && r.dataset === S.dataset
   );
@@ -97,6 +268,7 @@ async function loadSplit(value) {
     `&split=${encodeURIComponent(S.split)}` +
     `&dataset=${encodeURIComponent(S.dataset)}`
   );
+  if (token !== S.loadToken) return;
   S.questions = data.questions;
   S.caseIndex = 0;
   buildFilterOptions();
@@ -111,6 +283,9 @@ async function loadSplit(value) {
 // --------------------------------------------------------------------------- //
 function wireControls() {
   $("splitSel").onchange = (e) => loadSplit(e.target.value);
+  document.querySelectorAll(".track-tab").forEach((button) => {
+    button.onclick = () => activateTrack(button.dataset.track);
+  });
   ["search", "fmtSel", "capSel", "vidSel", "oodSel", "clinSel", "agreeSel", "focusSel"].forEach((id) => {
     const el = $(id);
     el.oninput = el.onchange = () => {
@@ -126,6 +301,47 @@ function wireControls() {
   $("backMatrix").onclick = () => setView("matrix");
   $("prevCase").onclick = () => stepCase(-1);
   $("nextCase").onclick = () => stepCase(1);
+  $("closeVideo").onclick = closeVideoModal;
+  $("videoBackdrop").onclick = closeVideoModal;
+  $("seekVideoStart").onclick = () => seekVideo(0);
+  $("seekRangeStart").onclick = () => seekVideo(Number($("trackVideo").dataset.rangeStart || 0));
+  $("seekRangeEnd").onclick = () => seekVideo(Number($("trackVideo").dataset.rangeEnd || 0));
+  $("playSegment").onclick = playSegmentRange;
+  document.querySelectorAll("[data-seek-relative]").forEach((button) => {
+    button.onclick = () => {
+      const video = $("trackVideo");
+      seekVideo(video.currentTime + Number(button.dataset.seekRelative));
+    };
+  });
+  const trackVideo = $("trackVideo");
+  trackVideo.addEventListener("loadedmetadata", () => {
+    seekVideo(Number(trackVideo.dataset.targetSeconds || 0));
+    $("playSegment").disabled = trackVideo.dataset.track !== "segment";
+    $("videoStatus").textContent =
+      trackVideo.dataset.track === "segment"
+        ? "Ready at the annotated segment start. Play the segment or use the full timeline."
+        : "Ready at the question time. Use the native timeline or the nearby seek buttons.";
+  });
+  trackVideo.addEventListener("waiting", () => {
+    $("videoStatus").textContent = "Waiting for source-video bytes…";
+  });
+  trackVideo.addEventListener("playing", () => {
+    $("videoStatus").textContent = "Streaming video directly; only requested byte ranges are transferred.";
+  });
+  trackVideo.addEventListener("timeupdate", () => {
+    if (trackVideo.dataset.rangePlayback !== "1") return;
+    const end = Number(trackVideo.dataset.rangeEnd);
+    if (Number.isFinite(end) && trackVideo.currentTime >= end) {
+      trackVideo.pause();
+      delete trackVideo.dataset.rangePlayback;
+      $("videoStatus").textContent = "Segment playback reached the annotated end time.";
+    }
+  });
+  trackVideo.addEventListener("error", () => {
+    $("playSegment").disabled = true;
+    $("videoStatus").textContent =
+      "The browser could not load or decode this source video or its proxy.";
+  });
   $("statsModelSel").onchange = (e) => {
     S.statsModel = e.target.value;
     if (S.view === "stats") renderStats();
@@ -135,6 +351,10 @@ function wireControls() {
     if (S.view === "stats") renderStats();
   };
   document.addEventListener("keydown", (e) => {
+    if (!$("videoModal").classList.contains("hidden")) {
+      if (e.key === "Escape") closeVideoModal();
+      return;
+    }
     if (S.view !== "case") return;
     if (e.key === "ArrowLeft") stepCase(-1);
     if (e.key === "ArrowRight") stepCase(1);
@@ -348,8 +568,9 @@ function renderMatrix() {
     wrap.innerHTML = `<div class="empty">No cases match the current filters.</div>`;
     return;
   }
+  const mediaHeading = S.track === "frame" ? "Frame" : "Video preview";
   const head =
-    `<thead><tr><th>Frame</th><th>Question</th><th>GT</th><th>Fmt</th><th>Primary capability</th>` +
+    `<thead><tr><th>${mediaHeading}</th><th>Question</th><th>GT</th><th>Fmt</th><th>Primary capability</th>` +
     ids.map((id) => {
       const r = runById[id];
       return `<th class="modelcol">${esc(r.model_name)}<br><span class="acc">${pct(r.accuracy)}</span></th>`;
@@ -358,7 +579,7 @@ function renderMatrix() {
 
   const rows = S.filtered.map((q, i) => {
     const img = q.has_image
-      ? `<img class="thumb" loading="lazy" src="/img?track=${encodeURIComponent(S.track)}&split=${encodeURIComponent(S.split)}&dataset=${encodeURIComponent(S.dataset)}&qid=${encodeURIComponent(q.qID)}" />`
+      ? `<img class="thumb" loading="lazy" alt="Representative ${esc(TRACKS[S.track]?.media || "frame")}" src="/img?track=${encodeURIComponent(S.track)}&split=${encodeURIComponent(S.split)}&dataset=${encodeURIComponent(S.dataset)}&qid=${encodeURIComponent(q.qID)}" />`
       : `<div class="thumb"></div>`;
     const cells = ids.map((id) => {
       const p = q.preds[id];
@@ -396,6 +617,7 @@ function renderMatrix() {
 
 function setView(v) {
   if (S.view === "matrix" && v !== "matrix") rememberMatrixPosition();
+  if (S.view === "case" && v !== "case") closeVideoModal();
   S.view = v;
   $("viewMatrix").classList.toggle("active", v === "matrix");
   $("viewStats").classList.toggle("active", v === "stats");
@@ -532,6 +754,7 @@ function activateCapabilityDrilldown(code) {
 // --------------------------------------------------------------------------- //
 function stepCase(d) {
   if (!S.filtered.length) return;
+  closeVideoModal();
   S.caseIndex = Math.max(0, Math.min(S.filtered.length - 1, S.caseIndex + d));
   S.caseQID = S.filtered[S.caseIndex].qID;
   positionMatrixAtCase(S.caseQID);
@@ -562,8 +785,18 @@ async function renderCase() {
   const sharedSys = sysSet.size === 1 ? [...sysSet][0] : null;
 
   const img = d.has_image
-    ? `<img class="case-img" src="/img?track=${encodeURIComponent(S.track)}&split=${encodeURIComponent(S.split)}&dataset=${encodeURIComponent(S.dataset)}&qid=${encodeURIComponent(d.qID)}" />`
+    ? `<img class="case-img" alt="Representative ${esc(TRACKS[S.track]?.media || "frame")}" src="/img?track=${encodeURIComponent(S.track)}&split=${encodeURIComponent(S.split)}&dataset=${encodeURIComponent(S.dataset)}&qid=${encodeURIComponent(d.qID)}" />`
     : `<div class="empty">no frame image</div>`;
+  const videoAction = S.track === "segment" ? "stream annotated segment" : "stream procedure video";
+  const videoNote = S.track === "segment"
+    ? "Opens at the annotated segment start · play only the bounded segment or inspect the full timeline"
+    : "Opens at the question time · browser-compatible 480p proxy preferred when available";
+  const media = d.has_video
+    ? `<div class="case-media">${img}` +
+      `<button id="openCaseVideo" class="video-launch" type="button">` +
+      `<span>▶ ${videoAction}</span></button></div>` +
+      `<div class="video-note">${videoNote}<br>Video bytes load only after click.</div>`
+    : img;
 
   const tags = [
     ["video", d.video], ["time", `${d.ts_start ?? ""}${d.ts_end && d.ts_end !== d.ts_start ? "–" + d.ts_end : ""}`],
@@ -588,7 +821,7 @@ async function renderCase() {
 
   $("caseBody").innerHTML = `
     <div class="case-grid">
-      <div>${img}</div>
+      <div>${media}</div>
       <div>
         <div class="panel">
           <div class="kv">${tags}</div>
@@ -609,6 +842,8 @@ async function renderCase() {
         </div>
       </div>
     </div>`;
+  const openVideo = $("openCaseVideo");
+  if (openVideo) openVideo.onclick = () => openVideoModal(d);
 }
 
 init().catch((e) => {

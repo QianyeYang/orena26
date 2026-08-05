@@ -223,16 +223,26 @@ def _infer_track(rel: Path) -> str | None:
     return top[len("track-"):] if top.startswith("track-") else None
 
 
-def _infer_split(track: str, sample_ids, split_id_cache: dict) -> str | None:
+def _infer_dataset(rel: Path) -> str | None:
+    """Dataset from a path component such as ``eval_epoch_8/heico``."""
+    return next((part for part in reversed(rel.parts) if part in paths.DATASETS), None)
+
+
+def _infer_split(
+    track: str,
+    dataset: str,
+    sample_ids,
+    split_id_cache: dict,
+) -> str | None:
     """Split whose GT parquet best matches the run's sample_ids (for meta-less runs)."""
     ids = {str(s) for s in sample_ids}
     if not ids:
         return None
     best, best_overlap = None, 0
     for split in paths.SPLITS:
-        key = (track, split)
+        key = (dataset, track, split)
         if key not in split_id_cache:
-            p = paths.parquet_path(track, split)
+            p = paths.parquet_path(track, split, dataset)
             try:
                 split_id_cache[key] = set(pd.read_parquet(p, columns=["id"])["id"].astype(str))
             except Exception:  # noqa: BLE001 — missing/unreadable parquet -> empty set
@@ -311,7 +321,12 @@ def _load_rich(
 
 
 def _load_legacy(
-    run_dir: Path, meta: dict, track: str, split: str, gt_cache: dict
+    run_dir: Path,
+    meta: dict,
+    track: str,
+    split: str,
+    dataset: str,
+    gt_cache: dict,
 ) -> tuple[dict[str, dict], dict[str, dict], dict[str, str]]:
     """Load an older responses.json run; reconstruct input from GT parquet + prompts."""
     # Lazy imports — these pull in the `focus` package, only needed for legacy runs.
@@ -325,11 +340,11 @@ def _load_legacy(
     correct = _read_correctness(run_dir)
     system_prompt = meta.get("system_prompt")  # baseline has none
 
-    gt_df = gt_cache.get((track, split))
+    gt_df = gt_cache.get((dataset, track, split))
     if gt_df is None:
-        gt_df = _data.read_parquet(track, split)
+        gt_df = _data.read_parquet(track, split, dataset)
         gt_df = gt_df.set_index(gt_df["id"].astype(str))
-        gt_cache[(track, split)] = gt_df
+        gt_cache[(dataset, track, split)] = gt_df
 
     base: dict[str, dict] = {}
     preds: dict[str, dict] = {}
@@ -359,7 +374,7 @@ def _load_legacy(
         if row:
             try:
                 req = _data.row_to_request(row)
-                images[qid] = str(_frames.request_frame_paths(req)[0])
+                images[qid] = str(_frames.request_frame_paths(req, dataset=dataset)[0])
             except Exception:  # noqa: BLE001
                 pass
         content = item.get("content", "")
@@ -394,20 +409,25 @@ def build_dataset(
             rel = run_dir.relative_to(repo_root)
             track = meta.get("track") or _infer_track(rel)
             split = meta.get("split")
-            dataset = str(meta.get("dataset") or "unknown")
+            dataset = str(meta.get("dataset") or _infer_dataset(rel) or "unknown")
             kind = "rich" if (run_dir / "predictions.parquet").exists() else "legacy"
 
             rich_model = None
             if kind == "rich":
                 base, preds, images, rich_model = _load_rich(run_dir, meta)
                 # Meta-less finetune runs: infer split by matching sample_ids to GT.
-                if not split and track:
-                    split = _infer_split(track, base.keys(), split_id_cache)
+                if not split and track and dataset in paths.DATASETS:
+                    split = _infer_split(track, dataset, base.keys(), split_id_cache)
             else:
-                if not track or not split:
-                    logger.warning("skipping legacy run without track/split meta: %s", run_dir)
+                if not track or not split or dataset not in paths.DATASETS:
+                    logger.warning(
+                        "skipping legacy run without track/split/dataset metadata: %s",
+                        run_dir,
+                    )
                     continue
-                base, preds, images = _load_legacy(run_dir, meta, track, split, gt_cache)
+                base, preds, images = _load_legacy(
+                    run_dir, meta, track, split, dataset, gt_cache
+                )
 
             if not track or not split:
                 logger.warning("skipping run; could not resolve track/split: %s", run_dir)

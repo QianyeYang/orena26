@@ -1,0 +1,74 @@
+{
+  "report": "Procedure Qwen3-VL-4B LoRA both-official epoch-8 full test",
+  "generated_on": "2026-07-31",
+  "source_run": "track-procedure/lora-finetune/logs/Qwen3-VL-4B-Instruct-both-official/full_test_epoch_8",
+  "run_manifest": {
+    "track": "procedure",
+    "split": "test",
+    "datasets": {
+      "heico": 2000,
+      "lapchole": 1127
+    },
+    "checkpoint": "checkpoint-3440",
+    "epoch": 8,
+    "adapter_sha256": "7927db9c55ecbaf2fad4f23c4686b9507a7bbb7e2d8537507c5086cbe6ae7c6f",
+    "sampling": {
+      "stride": {
+        "heico": 250,
+        "lapchole": 300
+      },
+      "max_frames": 96,
+      "max_pixels": 131072
+    },
+    "completed_at": "2026-07-29T11:07:54.478112+00:00"
+  },
+  "orena_focus_version": "0.3.4",
+  "datasets": {
+    "heico": {
+      "rows": 2000,
+      "videos": 10,
+      "correct": 621
+    },
+    "lapchole": {
+      "rows": 1127,
+      "videos": 28,
+      "correct": 610
+    }
+  },
+  "official_metric": {
+    "point_estimate": "mean of per-video question-level correctness means",
+    "confidence_interval": "official two-level hierarchical bootstrap: resample videos, then questions within video; 1000 samples, seed 42, percentile 95%",
+    "primary_source": "each dataset's eval/summary.csv",
+    "judge_formats": [
+      "open_ended",
+      "multiple_choice"
+    ],
+    "judge_model": "os-models/Qwen3.5-4B",
+    "procedure_timeout_seconds": 30
+  },
+  "descriptive_tables": {
+    "point_estimate": "mean of per-video question-level correctness means",
+    "confidence_intervals": "not computed; main official slices retain evaluator intervals",
+    "secondary_capability_note": "overlapping tags; not an official leaderboard slice",
+    "gap_decomposition_note": "symmetric exact decomposition of the question-micro LapChole-minus-HeiCo gap into capability-group composition and within-group performance"
+  },
+  "coverage_notes": {
+    "ood_rows": 0,
+    "object_attributes_primary_rows": 0,
+    "clinical_rows": 21,
+    "multi_timestamp_reference_rows": 34,
+    "time_v2_normalizer_posthoc_correctness_changes": 0,
+    "time_v2_normalizer_note": "Re-normalizing stored raw time outputs by retaining all timestamps changed no recorded correctness outcomes; this is not a v2 prompt/container rerun"
+  },
+  "source_sha256": {
+    "track-procedure/lora-finetune/logs/Qwen3-VL-4B-Instruct-both-official/full_test_epoch_8/run_manifest.json": "fd8d9d4be31d511dd256c30054465b7c2c08e2cfb1977e9f8c74fccbdb310add",
+    "track-procedure/lora-finetune/logs/Qwen3-VL-4B-Instruct-both-official/full_test_epoch_8/heico/eval/results.csv": "24a02967f50cd2791245b87acb91e008e3cf2388919db7201077dfa49e12eb00",
+    "track-procedure/lora-finetune/logs/Qwen3-VL-4B-Instruct-both-official/full_test_epoch_8/heico/eval/summary.csv": "42dcfeb536f4d736222ea4590dac6b6773792462bc649c9ad76779fc598e597c",
+    "track-procedure/lora-finetune/logs/Qwen3-VL-4B-Instruct-both-official/full_test_epoch_8/heico/predictions.parquet": "05d018828d9cd5160f675b412ea7bf27d29d0e2b84e9e72fb4c33bc8c2495dcf",
+    "data/parquet/procedure/test/0000.parquet": "ec4e30d24585ed5e9ce6ebeb332d33f5bef7e2ba4b6664a51672b92fe5f2ccce",
+    "track-procedure/lora-finetune/logs/Qwen3-VL-4B-Instruct-both-official/full_test_epoch_8/lapchole/eval/results.csv": "3cd7fc0acc9f52ab5116dc8c70b454c176ee60f8a2329a87b59696a0e3d781b2",
+    "track-procedure/lora-finetune/logs/Qwen3-VL-4B-Instruct-both-official/full_test_epoch_8/lapchole/eval/summary.csv": "09771abf9c22b792a1cedb7381f36c035c557adae4da8064d4c30ffd5f0c1e5d",
+    "track-procedure/lora-finetune/logs/Qwen3-VL-4B-Instruct-both-official/full_test_epoch_8/lapchole/predictions.parquet": "3bdd240bf6434daf92a386f55b595e307030fac22d6178211894473a27a283dc",
+    "data/parquet/lapchole/procedure/test/0000.parquet": "1366f20ed88a83d370dd24a3d5ca0325fee3bb5fe10dc2ce1ef6248474b62c60"
+  }
+}

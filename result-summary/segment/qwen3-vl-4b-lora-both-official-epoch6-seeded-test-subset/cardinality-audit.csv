@@ -1,0 +1,7 @@
+dataset,answer_format,eligible_rows,gold_multi_rows,raw_multi_rows,normalized_multi_rows,raw_to_normalized_multi_rows_lost,normalized_cardinality_match_rows,normalized_cardinality_match_rate,correct_rows
+heico,fo_class,68,6,7,7,0,65,0.955882353,62
+heico,time,138,2,1,0,1,136,0.985507246,84
+heico,multiple_choice_multi_select,14,5,5,5,0,14,1.000000000,8
+lapchole,fo_class,62,13,12,12,0,58,0.935483871,49
+lapchole,time,55,0,0,0,0,55,1.000000000,31
+lapchole,multiple_choice_multi_select,14,7,6,6,0,13,0.928571429,14

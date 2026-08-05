@@ -1,0 +1,7 @@
+dataset,answer_format,subtype,value,rows,videos,correct,micro_accuracy,video_macro_accuracy
+heico,binary,gold_value,no,68,10,61,0.897058824,0.898809524
+heico,binary,gold_value,yes,61,10,45,0.737704918,0.765000000
+heico,multiple_choice,selection_type,single_select,32,5,21,0.656250000,0.627777778
+lapchole,binary,gold_value,no,76,28,69,0.907894737,0.916666667
+lapchole,binary,gold_value,yes,70,27,50,0.714285714,0.685185185
+lapchole,multiple_choice,selection_type,single_select,37,10,15,0.405405405,0.350000000
