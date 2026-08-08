@@ -62,13 +62,19 @@ an optimisation).
 
 ### Batching / OOM
 
-`per_device_batch_size: 1`, `grad_accum: 16`, single B200 (the regime all
-both-official runs used) → effective batch 16, identical to every specialist.
-Single-sample microbatches also make mixed-length batches free: no padding
-waste between a 0.6 k-token frame item and a 17 k-token segment item, and no
-mixed-budget processor calls. 34,367 rows / 16 = **2,148 optimizer
-steps/epoch**; `save_steps: 537` = exact quarter epochs for requeue recovery,
-plus the per-epoch checkpoints used for selection.
+`per_device_batch_size: 1`, `grad_accum: 4`, **4× A100 DDP**
+(`train_multigpu.slurm`) → effective batch 16, identical to every specialist.
+This is the production-validated geometry: the segment both-official run
+itself trained at world_size 4 / pdbs 1 / accum 4, and the 2×A100 smoke ran
+segment's full 64-frame @ 262 k px items at pdbs 1 on 80 GB — procedure items
+(12.3 k vision tokens) are strictly smaller than segment items (16.4 k), so no
+per-track frame reduction is needed on A100. Single-sample microbatches also
+make mixed-length batches free: no padding waste between a 0.6 k-token frame
+item and a 17 k-token segment item, and no mixed-budget processor calls.
+34,367 rows / eff 16 = **2,148 optimizer steps/epoch** (independent of world
+size); `save_steps: 537` = exact quarter epochs for requeue recovery, plus the
+per-epoch checkpoints used for selection. Single-GPU fallback: `train.slurm`
+with `--grad-accum 16`.
 
 ### Epochs and checkpoint selection
 
@@ -90,10 +96,10 @@ filesystem sync, judge = local Qwen3.5-4B, never kills training): three seeded
 
 ### Wall time (estimate, verify in smoke)
 
-~2,148 steps/epoch at an expected 15–25 s/step on one B200 ≈ 9–15 h/epoch
-+ eval → 12 epochs ≈ 5–8 days ≈ 3–4 requeued 2-day jobs (auto-resume, same
-mechanism as the segment run). If the smoke-measured step time projects worse,
-fall back to 2-GPU DDP (harness already supports it) before launching.
+~2,148 steps/epoch on 4× A100 + per-epoch eval → measure the real s/step in
+the smoke; the run spans multiple requeued 2-day jobs with auto-resume (same
+mechanism as the segment production run). Raise `NUM_GPUS` (with
+`--grad-accum` adjusted to keep eff 16) if the projection is too slow.
 
 ## Files
 
@@ -101,18 +107,21 @@ fall back to 2-GPU DDP (harness already supports it) before launching.
   `run_unified_training()`.
 - `track-unified/lora-finetune/src/train.py`: thin CLI wrapper.
 - `src/configs/qwen3_vl_4b_unified.yaml`: the run config.
-- `scripts/train.slurm`: b200, gpu:1, /dev/shm staging, auto-resume, judge in-job.
+- `scripts/train_multigpu.slurm`: PRIMARY — 4× A100 torchrun DDP, /dev/shm
+  staging, auto-resume, judge in-job.
+- `scripts/train.slurm`: single-GPU b200 fallback (`--grad-accum 16`).
 - `tests/test_unified_parity.py`: CPU prompt-parity tests vs the specialist
   datasets (run on civo login node).
 
 ## Usage
 
 ```bash
-# smoke (single GPU, minutes):
-sbatch scripts/train.slurm src/configs/qwen3_vl_4b_unified.yaml \
+# smoke (4x A100, minutes):
+RUN_NAME_OVERRIDE=_smoke_a100_unified NUM_GPUS=4 \
+  sbatch scripts/train_multigpu.slurm src/configs/qwen3_vl_4b_unified.yaml \
     --limit-per-track 8 --epochs 1 --eval-limit 6 --save-steps 2
 # real run (auto-resumes across requeues):
-sbatch scripts/train.slurm
+sbatch scripts/train_multigpu.slurm
 ```
 
 ## Selection & reporting

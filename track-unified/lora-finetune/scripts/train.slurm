@@ -11,10 +11,11 @@
 #SBATCH --output=/datasets/engs2732/orena/track-unified/lora-finetune/logs/train-%j.log
 #SBATCH --error=/datasets/engs2732/orena/track-unified/lora-finetune/logs/train-%j.log
 
+# Single-GPU FALLBACK (b200) — the primary launch is train_multigpu.slurm on
+# 4x A100. The config carries the DDP grad_accum (4), so single-GPU runs MUST
+# pass --grad-accum 16 to keep effective batch 16.
 # Usage: sbatch train.slurm [config] [extra train.py args...]
-#   sbatch train.slurm                                                # full run
-#   sbatch train.slurm src/configs/qwen3_vl_4b_unified.yaml \
-#       --limit-per-track 8 --epochs 1 --eval-limit 6 --save-steps 2  # smoke
+#   sbatch train.slurm src/configs/qwen3_vl_4b_unified.yaml --grad-accum 16
 # Per-epoch per-track seeded-subset inference + judge scoring run INSIDE this
 # job. Resumable: re-submitting the same config auto-continues from the latest
 # checkpoint (optimizer/scheduler/RNG restored), so the 12-epoch target can
