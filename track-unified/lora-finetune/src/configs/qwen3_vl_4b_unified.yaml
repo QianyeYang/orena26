@@ -1,0 +1,74 @@
+# Unified multi-track LoRA SFT from the original Qwen3-VL-4B base on both
+# official datasets. Each track keeps its specialist sampling regime and pixel
+# budget (per-item pre-resize); per-track best epochs are selected afterwards.
+base_path: os-models/Qwen3-VL-4B-Instruct
+run_name: Qwen3-VL-4B-Instruct-unified-both-official
+model_name: Qwen3-VL-4B-Instruct-lora-unified
+datasets: [heico, lapchole]
+dtype: bfloat16
+attn_implementation: sdpa
+
+tracks:
+  frame:
+    # zero-length windows -> exactly one frame; stride is irrelevant but kept
+    # explicit for the shared coverage precheck.
+    stride: {heico: 25, lapchole: 30}
+    max_frames: 1
+    max_pixels: 602112
+    repeat: 1
+    eval_n: 500
+  segment:
+    # One source-second grid for each dataset's official native FPS.
+    stride: {heico: 25, lapchole: 30}
+    max_frames: 64
+    max_pixels: 262144
+    repeat: 1
+    eval_n: 500
+  procedure:
+    # Ten source-seconds per grid point.
+    stride: {heico: 250, lapchole: 300}
+    max_frames: 96
+    max_pixels: 131072
+    repeat: 1
+    eval_n: 500
+
+processor:
+  # Global processor budget = max over track budgets; per-item budgets are
+  # enforced by the collator/eval pre-resize (see src/videovqa_unified.py).
+  min_pixels: null
+  max_pixels: 602112
+
+lora:
+  r: 16
+  alpha: 32
+  dropout: 0.05
+  target_modules: null
+  exclude_name_contains: [lm_head, embed_tokens]
+  modules_to_save: null
+
+train:
+  epochs: 12
+  # Single-sample microbatches make mixed-length/mixed-budget batches free;
+  # effective batch 16 matches every both-official specialist.
+  per_device_batch_size: 1
+  grad_accum: 16
+  auto_find_batch_size: false
+  learning_rate: 1.0e-4
+  lr_scheduler: cosine
+  warmup_ratio: 0.03
+  weight_decay: 0.0
+  max_grad_norm: 1.0
+  max_new_tokens: 64
+  logging_steps: 10
+  # 34,367 rows / eff 16 = 2,148 optimizer steps/epoch; 537 = exact quarter
+  # epochs for requeue recovery on top of the per-epoch selection checkpoints.
+  save_strategy: steps
+  save_steps: 537
+  dataloader_num_workers: 8
+  # Avoid the PyTorch pin-thread/resource-sharer race seen on long B200 runs.
+  dataloader_pin_memory: false
+  dataloader_persistent_workers: true
+  dataloader_prefetch_factor: 2
+  optim: adamw_torch_fused
+  tf32: true
+  seed: 42

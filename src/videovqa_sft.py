@@ -133,10 +133,12 @@ class VideoSFTCollator:
             text=[prompt_text], images=images or None, return_tensors="pt"
         )["input_ids"].shape[1]
 
+    def load_images(self, ex: dict) -> list:
+        """Open one example's images; subclasses may apply per-item resizing."""
+        return [Image.open(p).convert("RGB") for p in ex["image_paths"]]
+
     def __call__(self, examples: list[dict]) -> dict:
-        per_images = [
-            [Image.open(p).convert("RGB") for p in ex["image_paths"]] for ex in examples
-        ]
+        per_images = [self.load_images(ex) for ex in examples]
         flat = [im for ims in per_images for im in ims]
         fulls, prompts = [], []
         for ex in examples:
