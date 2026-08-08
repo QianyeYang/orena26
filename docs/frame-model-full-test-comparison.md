@@ -2,6 +2,13 @@
 
 Test date: 2026-07-24
 
+> **Correction (2026-08-08):** every accuracy in this document was scored
+> with the pre-fix single-label `fo_class` adapter. The corrected epoch-30
+> baselines are **HeiCo 0.7067 / LapChole 0.6417** — see
+> [`result-summary/frame/epoch30-multilabel-rescore.md`](../result-summary/frame/epoch30-multilabel-rescore.md).
+> Relative old-vs-new comparisons below remain directionally valid (both
+> models were scored with the same broken adapter).
+
 ## Headline result
 
 The new epoch-30 model is better than the old best checkpoint on both current
