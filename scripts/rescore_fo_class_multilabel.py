@@ -22,12 +22,15 @@ Writes ``eval/rescore-results.csv`` + ``eval/rescore-summary.csv`` per dataset
 from __future__ import annotations
 
 import argparse
+import sys
 from pathlib import Path
 
 import pandas as pd
 from focus import get_format_class
 
-from src.adapter import build_response, is_multi_select
+sys.path.insert(0, str(Path(__file__).resolve().parents[1]))  # shared `src`
+
+from src.adapter import build_response, is_multi_select  # noqa: E402
 
 FO_FORMAT = get_format_class("fo_class")()
 
