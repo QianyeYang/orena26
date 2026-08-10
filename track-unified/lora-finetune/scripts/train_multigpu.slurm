@@ -20,6 +20,14 @@
 # are strictly smaller). Keep effective batch 16 when changing NUM_GPUS:
 #   2 GPUs: --grad-accum 8    8 GPUs: --grad-accum 2
 #
+# 4x H200 (partition `vgg`, node civo-h200-1 = the only 8-GPU H200 box; the
+# `h200` partition is 8 separate 1-GPU nodes and cannot host this job).
+# CLI flags override the #SBATCH headers and survive --requeue:
+#   sbatch --partition=vgg --cpus-per-task=40 --mem=512G \
+#     --job-name=unified-qwen4b-h200 train_multigpu.slurm
+# Same NUM_GPUS=4 / pdbs 1 x accum 4 geometry, so a run started on A100
+# resumes on H200 from its latest checkpoint with no config change.
+#
 #   RUN_NAME_OVERRIDE=_smoke_a100_unified NUM_GPUS=4 \
 #     sbatch train_multigpu.slurm src/configs/qwen3_vl_4b_unified.yaml \
 #       --limit-per-track 8 --epochs 1 --eval-limit 6 --save-steps 2   # smoke
