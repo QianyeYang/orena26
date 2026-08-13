@@ -20,13 +20,15 @@
 # are strictly smaller). Keep effective batch 16 when changing NUM_GPUS:
 #   2 GPUs: --grad-accum 8    8 GPUs: --grad-accum 2
 #
-# 4x H200 (partition `vgg`, node civo-h200-1 = the only 8-GPU H200 box; the
-# `h200` partition is 8 separate 1-GPU nodes and cannot host this job).
-# CLI flags override the #SBATCH headers and survive --requeue:
-#   sbatch --partition=vgg --cpus-per-task=40 --mem=512G \
-#     --job-name=unified-qwen4b-h200 train_multigpu.slurm
-# Same NUM_GPUS=4 / pdbs 1 x accum 4 geometry, so a run started on A100
-# resumes on H200 from its latest checkpoint with no config change.
+# H200 is NOT reachable for this account (checked 2026-08-10): the only H200
+# box with >1 GPU is civo-h200-1, which sits solely in partition `vgg`, and
+# account bia_ng has no vgg association -> "Invalid account or account/
+# partition combination". Partition `h200` (civo-h200-[2-9]) is 8 separate
+# 1-GPU nodes with 14 CPUs / 160 GB each, so 4 H200s there would need
+# multi-node rendezvous instead of --standalone, plus --cpus-per-task<=14.
+# If vgg access is granted later, 4 GPUs on civo-h200-1 is a drop-in swap
+# (same NUM_GPUS=4 / pdbs 1 x accum 4, resumes from the latest checkpoint):
+#   sbatch --partition=vgg --cpus-per-task=40 --mem=512G train_multigpu.slurm
 #
 #   RUN_NAME_OVERRIDE=_smoke_a100_unified NUM_GPUS=4 \
 #     sbatch train_multigpu.slurm src/configs/qwen3_vl_4b_unified.yaml \
