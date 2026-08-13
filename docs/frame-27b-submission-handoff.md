@@ -30,6 +30,7 @@ runtime, torchao becomes a hard dependency, and GPU memory goes from 9.6 GiB to
 | adapter | FRAME LoRA **epoch 24** (`Qwen3.6-27B-frame-v1prompt/checkpoint-23136`), **already merged** |
 | quantization | INT8 weight-only on the language-model MLP projections, **192 of 607** Linears; everything else bf16 |
 | load | plain `from_pretrained` — `config.json` carries `quantization_config` (`quant_method: torchao`) |
+| accuracy | **0.6571** on the 1,203 stratified rows (bf16 unmerged epoch 24: 0.6597, so **−0.0026**) |
 
 A bf16 merged copy also exists at `Qwen3.6-27B-frame-ep24-merged` (50.97 GiB).
 It is **not** what ships; it is the intermediate the quantized model was built
@@ -169,4 +170,5 @@ normalisation in `src/adapter.py`.
 2. Weights on GPU ≈ **35 GiB**; peak under 48 GB with `--mem-fraction 0.313`.
 3. **Cold** model-ready time under 120 s (§6).
 4. Smoke fixture returns 3/3 structurally valid answers, no traceback.
-5. Accuracy on the 1,203 stratified rows matches the recorded epoch-24 figure.
+5. Accuracy on the 1,203 stratified rows reproduces **0.6571** (already verified
+   once, `bench-4414.log` / `logs/27b-ep24-int8mlp-merged`).

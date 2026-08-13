@@ -9,6 +9,7 @@
 | Bounding-box counting prompt | Direct count versus localize-then-count with the same epoch-30 model | [Counting prompt comparison](counting-bbox-prompt.md) |
 | 27B INT8 deployment | bf16 versus INT8-on-MLPs — fits a 48 GB L40S at 0.6548 → 0.6551 | [INT8 MLP deployment](int8-mlp-deployment.md) |
 | 27B counting head | Ordinal count head versus token generation — negative, +0.0053 | [Counting head](../../track-frame/counting-head/architecture.md) |
+| 27B epoch sweep + shipped artefact | Epochs 8/16/24/30 are inseparable; epoch 24 merged+INT8 = 0.6571 at 35 GiB | [27B epoch sweep](27b-epoch-sweep.md) |
 
 Reports in this directory must show HeiCo and LapChole separately before any
 cross-dataset aggregate, then break results down by capability and relevant
