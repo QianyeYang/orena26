@@ -1,0 +1,57 @@
+# FRAME v2 LoRA SFT on Qwen3.6-27B (the base the leaderboard leader uses).
+# Trains on one H200 NVL (141 GB): 54 GB of bf16 weights plus activations under
+# gradient checkpointing.
+base_path: os-models/Qwen3.6-27B
+run_name: Qwen3.6-27B-frame-v2
+model_name: Qwen3.6-27B-frame-v2-lora
+datasets: [heico, lapchole]
+dtype: bfloat16
+attn_implementation: sdpa
+trust_remote_code: false
+
+# Thinking stays off in training because it is off at inference: a 20-question
+# batch has ~6-9 s per question after model load, and reasoning cost 12 s.
+# Train and test must render the same chat template.
+enable_thinking: false
+prompt_strategy: v2
+
+# 602,112 px. A 602k -> 1003k resolution probe moved overall accuracy +0.26 pp
+# and counting +0.73 pp, and the extracted frames are only 960x540 / 720x576, so
+# they already fit under this cap without downscaling.
+min_pixels: null
+max_pixels: 602112
+
+lora:
+  r: 16
+  alpha: 32
+  dropout: 0.05
+  target_modules: null           # auto-discovered nn.Linear leaves
+  exclude_name_contains: [lm_head, embed_tokens, mtp]
+  modules_to_save: null          # auto-detects visual.merger
+
+train:
+  # 8, not the 30 that produced the shipped 4B. Half the score is
+  # out-of-distribution and 30 epochs on 13,748 rows drove the ID/OOD gap to
+  # 0.244 on object recognition against the leader's 0.199.
+  epochs: 8
+  per_device_batch_size: 4
+  grad_accum: 4                  # effective batch 16
+  learning_rate: 1.0e-4
+  lr_scheduler: cosine
+  warmup_ratio: 0.03
+  weight_decay: 0.0
+  max_grad_norm: 1.0
+  logging_steps: 10
+  save_strategy: epoch
+  dataloader_num_workers: 8
+  dataloader_pin_memory: false
+  dataloader_persistent_workers: true
+  dataloader_prefetch_factor: 2
+  optim: adamw_torch_fused
+  tf32: true
+  seed: 42
+  # Counting answers run 669/597/471/368/248/142/63/45/14/7/4 over counts 1-11.
+  # Inverse-square-root replication (capped at 4x) lifts the tail without the
+  # 167x oversampling full inverse-frequency would demand: 13,748 -> 15,420 rows.
+  count_balance_power: 0.5
+  count_balance_cap: 4

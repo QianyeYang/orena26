@@ -1,0 +1,74 @@
+# FRAME LoRA SFT on Qwen3.6-27B — the run we ship.
+#
+# Prompts are v1 ("direct"), the shipped strategy. The v2 family was tested and
+# dropped: measured on the 4B zero-shot over 6,252 rows, v1 scored 0.2823 and
+# the best v2 variant 0.2698, and an audit of all 20,000 FRAME rows found zero
+# cases where a v1 prompt demanded one answer while the truth held several — the
+# defect the redesign was meant to fix does not exist.
+#
+# Trains on one H200 NVL (141 GB): 52 GB of bf16 weights plus activations under
+# gradient checkpointing.
+base_path: os-models/Qwen3.6-27B
+run_name: Qwen3.6-27B-frame-v1prompt
+model_name: Qwen3.6-27B-frame-v1prompt-lora
+datasets: [heico, lapchole]
+dtype: bfloat16
+attn_implementation: sdpa
+trust_remote_code: false
+
+# Thinking stays off because it is off at inference: a 20-question batch allows
+# ~6-9 s per question after model load, and reasoning cost 12.0 s per question
+# while returning truncated reasoning instead of an answer. Train and test must
+# render the same chat template.
+enable_thinking: false
+prompt_strategy: direct
+
+# 602,112 px. The extracted frames are 960x540 and 720x576, so they already fit
+# under this cap without downscaling; a 602k -> 1003k probe moved overall
+# accuracy +0.26 pp and counting +0.73 pp, which is noise.
+min_pixels: null
+max_pixels: 602112
+
+lora:
+  # r=32 rather than the 16 used on the 4B: this model is 5,120 wide with 64
+  # layers, so the same rank is a much thinner adapter here.
+  r: 32
+  alpha: 64
+  dropout: 0.05
+  # null => every nn.Linear leaf outside `exclude_name_contains`, which covers
+  # the vision tower (qkv, proj, linear_fc1, linear_fc2 over 27 blocks) as well
+  # as the language model. The shipped 4B adapted its vision tower too, and
+  # surgical endoscopy is far from the pretraining distribution.
+  target_modules: null
+  exclude_name_contains: [lm_head, embed_tokens, mtp]
+  modules_to_save: null          # auto-detects visual.merger
+
+train:
+  # 8, not the 30 that produced the shipped 4B: 30 epochs drove that model's
+  # ID/OOD gap on object recognition to 0.244 against the leader's 0.199, and
+  # half the metric is out-of-distribution. Every epoch is checkpointed and
+  # scored separately, so the best epoch is chosen rather than the last.
+  epochs: 8
+  per_device_batch_size: 4
+  grad_accum: 4                  # effective batch 16
+  learning_rate: 1.0e-4
+  lr_scheduler: cosine
+  warmup_ratio: 0.03
+  weight_decay: 0.0
+  max_grad_norm: 1.0
+  logging_steps: 10
+  save_strategy: epoch
+  dataloader_num_workers: 8
+  dataloader_pin_memory: false
+  dataloader_persistent_workers: true
+  dataloader_prefetch_factor: 2
+  optim: adamw_torch_fused
+  tf32: true
+  seed: 42
+  # Counting is ~38% of the score and our worst format (0.478 exact). Ground
+  # truth reaches 12 while the model never predicts above 5. Counts 1-11 occur
+  # 669/597/471/368/248/142/63/45/14/7/4 times; inverse-sqrt replication capped
+  # at 4x lifts the tail without the 167x oversampling full inverse-frequency
+  # would demand: 13,748 -> 15,420 rows.
+  count_balance_power: 0.5
+  count_balance_cap: 4
