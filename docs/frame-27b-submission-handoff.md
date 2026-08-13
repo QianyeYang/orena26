@@ -1,0 +1,172 @@
+# FRAME 27B submission handoff
+
+Instructions for building the FRAME submission bundle around the Qwen3.6-27B
+epoch-24 model, written for whoever adapts the existing 4B bundle. It states
+only what **differs** from
+`submissions/frame/qwen3-vl-4b-lora-both-official-epoch30-20260725`; everything
+not mentioned here stays exactly as it is.
+
+Method background: [`large-model-deployment.md`](large-model-deployment.md).
+Numbers: [`../result-summary/frame/int8-mlp-deployment.md`](../result-summary/frame/int8-mlp-deployment.md).
+
+## 1. The one-line summary
+
+The bundle stops carrying **base + LoRA adapter** and starts carrying **one
+already-merged, already-quantized model directory**. PEFT disappears from the
+runtime, torchao becomes a hard dependency, and GPU memory goes from 9.6 GiB to
+~35 GiB — which invalidates the V100 smoke test.
+
+## 2. The model
+
+```
+/datasets/engs2732/orena/os-models/Qwen3.6-27B-frame-ep24-int8mlp
+```
+
+| | |
+| --- | --- |
+| size on disk | **35.05 GiB**, a single `model.safetensors` |
+| weights on GPU | **35.0 GiB** (measured, `bench-4414.log`) |
+| base | Qwen3.6-27B |
+| adapter | FRAME LoRA **epoch 24** (`Qwen3.6-27B-frame-v1prompt/checkpoint-23136`), **already merged** |
+| quantization | INT8 weight-only on the language-model MLP projections, **192 of 607** Linears; everything else bf16 |
+| load | plain `from_pretrained` — `config.json` carries `quantization_config` (`quant_method: torchao`) |
+
+A bf16 merged copy also exists at `Qwen3.6-27B-frame-ep24-merged` (50.97 GiB).
+It is **not** what ships; it is the intermediate the quantized model was built
+from, and is useful only for A/B checks.
+
+Rebuild either from scratch with:
+
+```bash
+sbatch track-frame/v2/scripts/export_merged.slurm \
+  track-frame/v2/logs/Qwen3.6-27B-frame-v1prompt/checkpoint-23136 ep24
+```
+
+## 3. What changes in `inference.py`
+
+**Delete** the PEFT import and the two-path model load:
+
+```python
+from peft import PeftModel                      # DELETE
+
+BASE_PATH    = APP_PATH / "resources" / "base_model"    # DELETE
+ADAPTER_PATH = APP_PATH / "resources" / "adapter"       # DELETE
+
+base = AutoModelForImageTextToText.from_pretrained(BASE_PATH, ...)   # DELETE
+self.model = PeftModel.from_pretrained(base, ADAPTER_PATH, ...)      # DELETE
+```
+
+**Replace** with a single load. The processor comes from the same directory —
+the exporter copied the full processor set (`chat_template.jinja`,
+`preprocessor_config.json`, `video_preprocessor_config.json`,
+`processor_config.json`, `tokenizer*`) beside the weights:
+
+```python
+MODEL_PATH = APP_PATH / "resources" / "model"
+
+self.processor = AutoProcessor.from_pretrained(
+    MODEL_PATH, max_pixels=MAX_PIXELS,
+    local_files_only=True, trust_remote_code=False,
+)
+self.processor.tokenizer.padding_side = "left"
+if self.processor.tokenizer.pad_token_id is None:
+    self.processor.tokenizer.pad_token = self.processor.tokenizer.eos_token
+
+self.model = AutoModelForImageTextToText.from_pretrained(
+    MODEL_PATH,
+    dtype=torch.bfloat16,          # see §4 — not overridable any more
+    device_map={"": 0},
+    attn_implementation="sdpa",
+    low_cpu_mem_usage=True,
+    local_files_only=True,
+    trust_remote_code=False,
+).eval()
+```
+
+Do **not** pass a `quantization_config`. The checkpoint is already quantized;
+passing one would try to quantize it twice.
+
+`resources/` accordingly becomes `model/` instead of `base_model/` + `adapter/`.
+Regenerate `weights.sha256` over the new tree.
+
+## 4. `FOCUS_MODEL_DTYPE` / the FP16 override is dead
+
+The 4B bundle exposes `FOCUS_MODEL_DTYPE` and the old handoff used
+`FOCUS_TEST_MODEL_DTYPE=float16` for the V100 smoke test. **Both must go.**
+
+INT8 weight-only weights are torchao tensor subclasses. A dtype flag does not
+re-cast them; at best it is ignored, at worst it silently dequantizes and the
+memory saving vanishes. The model is bf16-or-nothing. Remove the env var rather
+than leaving a knob that appears to work.
+
+## 5. The V100 host cannot run this
+
+The old procedure smoke-tested the image on the 32 GB V100 Docker host. That is
+no longer possible — **35 GiB of weights does not fit in 32 GB at any dtype**,
+and §4 removes the FP16 escape hatch. The 4B fitted because it peaked at
+9.62 GiB.
+
+Options, in order of preference:
+
+1. Smoke-test with Apptainer **on civo**, where an h200 (141 GB) or the a100 box
+   is available, and prove the 48 GB target fits with
+   `torch.cuda.set_per_process_memory_fraction(0.313)` (= 43.8 GiB of 139.8 GiB).
+   That makes a large GPU's allocator fail exactly where an L40S would.
+2. If the Docker host must produce the evidence, it needs a ≥48 GB card. A CPU-
+   only run proves packaging and I/O but **not** the GPU path — label it as such
+   and do not record it as a GPU test.
+
+Do not mark the bundle GPU-tested on a V100 result.
+
+## 6. The setup budget is the real risk
+
+The submission allows **120 s of setup**, and this is the likeliest place the
+whole thing fails.
+
+| | 4B (shipped) | 27B (this) |
+| --- | ---: | ---: |
+| model bytes | 8.3 GB | **35.05 GiB** |
+| model-ready time | 99.60 s | **unmeasured cold** |
+| warm load (cluster) | — | 15.0 s |
+
+The 4B used 99.6 s of a 120 s budget for a *quarter* of the bytes. The 15.0 s
+figure here is off a warm NFS page cache on an h200 and is not evidence about
+the submission host. **Measure a cold load explicitly** before trusting this —
+that number decides whether the 27B is submittable at all, and it is the one
+piece of evidence nobody has yet.
+
+## 7. Batch size
+
+`MICRO_BATCH_SIZE` defaults to 8 (`FOCUS_BATCH_SIZE`), tuned for a 9.6 GiB 4B on
+a 48 GB card. With 35 GiB of weights there is ~8 GiB of headroom, not ~38 GiB.
+Start at **1–2** and raise only against a measured `max_memory_allocated`.
+Activations were 0.43 GiB per question at `max_pixels=602112`.
+
+## 8. Dependencies
+
+- **add `torchao==0.18.0`** — without it `from_pretrained` cannot read
+  `quant_method: torchao` and the load fails outright.
+- `peft` is no longer needed at runtime (the adapter is merged). Keep it only if
+  `validate_bundle.py` asserts on it.
+- Unchanged: `torch 2.13.0+cu130`, `transformers 5.14.1`.
+
+## 9. Do NOT touch these
+
+The model was fine-tuned on **v1 prompts** and evaluated with
+`--prompt-strategy direct`. That strategy resolves to the *byte-identical*
+`SYSTEM_PROMPT` the 4B bundle already hardcodes, so the prompt path needs no
+change — and must not be "improved". The v2 prompts in `src/prompts.py` belong
+to a different, untrained-for evaluation path and would degrade this model.
+
+Also unchanged: `MAX_PIXELS = 602_112`, `MAX_NEW_TOKENS = 64`,
+`MAX_TEXT_LENGTH = 300`, greedy decoding, left padding, and the answer
+normalisation in `src/adapter.py`.
+
+## 10. Acceptance checks before shipping
+
+1. `count_quantized_linears` reports **192/607**. An exclusion list that matches
+   nothing once ran a whole 1,203-row benchmark unnoticed.
+2. Weights on GPU ≈ **35 GiB**; peak under 48 GB with `--mem-fraction 0.313`.
+3. **Cold** model-ready time under 120 s (§6).
+4. Smoke fixture returns 3/3 structurally valid answers, no traceback.
+5. Accuracy on the 1,203 stratified rows matches the recorded epoch-24 figure.
