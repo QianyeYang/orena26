@@ -18,6 +18,18 @@ best specialist for each track.
 | segment | 0.6795 | 0.7803 | **−0.023 on HeiCo**, tie on LapChole |
 | procedure | 0.3705 | 0.5786 | **+0.060 / +0.037**, significant on both |
 
+Only 3 of the 6 track×dataset cells differ significantly from the specialist.
+Driven by two opposite cross-track transfers: frame's object data lifts
+`object_recognition` everywhere it is new (+0.03 to +0.06, p<0.01 in all four
+segment/procedure cells), while procedure's coarse timestamps degrade segment's
+fine `temporal_grounding` (−0.07/−0.09) and improve procedure's (+0.047).
+
+| Deployment configuration | Models | Six-cell mean |
+| --- | ---: | ---: |
+| All specialists | 3 | 0.6128 |
+| All unified (epoch 8) | 1 | 0.6267 |
+| **Unified + segment specialist** | **2** | **0.6296** |
+
 Reports in this directory must show HeiCo and LapChole separately before any
 cross-dataset aggregate, then break results down by capability and relevant
 question subtype. Because a unified model is compared against a *different*

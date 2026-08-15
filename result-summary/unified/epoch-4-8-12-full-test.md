@@ -7,6 +7,13 @@ holding each track's best full-test score.
 **Verdict: procedure gains ~+0.05/+0.04 and the gain is statistically solid;
 frame is a wash; segment loses ~0.02 on HeiCo. Epoch 8 is the best checkpoint.**
 
+**Why (§6): joint training makes two trades. Frame's object data lifts
+`object_recognition` in all four segment/procedure cells; procedure's coarse
+timestamps drag segment's fine `temporal_grounding` down while lifting
+procedure's. Procedure gains on both axes and wins; segment gains objects but
+loses time, which costs it on HeiCo where 44% of questions are temporal; frame
+has neither exposure and ties.**
+
 ## 1. What was run
 
 | Item | Value |
@@ -196,32 +203,101 @@ Both from §6/§7 below.
   `spatial_localization_camera` 0.9000 → 0.9100, `fo_usage_purpose`
   0.7963 → 0.9722. So the unified model is not broadly worse at segment; it is
   specifically worse at placing events in time, in the one bucket big enough to
-  sink the track score. A plausible but **untested** mechanism: procedure shares
-  the same `time` answer format at a much coarser granularity (stride 250–300 vs
-  25–30), so joint training may pull the shared weights toward coarser temporal
-  answers.
+  sink the track score. The mechanism is confirmed in §6: procedure shares the
+  same `time` answer format at a much coarser granularity (stride 250–300 vs
+  25–30), and joint training moves the shared temporal behaviour toward
+  procedure's granularity.
 - **`percentage` is broken everywhere** (0.00–0.075 across every bucket and
   epoch, n=17–22 per bucket). Small, but it is free score being left on the table
   and it is not a unified-model regression — worth a separate look.
 - **`number` remains the weakest large format**: frame/lapchole 0.4405,
   procedure/heico 0.3086 at epoch 8. Also pre-existing.
 
-## 6. Recommendation
+## 6. Why: two cross-track transfers pulling in opposite directions
+
+Bucket-level paired comparison against each specialist, from
+`track-unified/lora-finetune/src/unified_vs_specialist_buckets.py` (epoch 8,
+same rows, McNemar within each bucket). Bucket accuracies are macro-over-video,
+matching how `summary.csv` reports them — verified against the run's own summary
+rather than assumed.
+
+The track totals in §2 are the sum of two clean, opposite effects.
+
+### 6.1 Frame's object data lifts segment and procedure
+
+`object_recognition` improves in **all four** segment and procedure cells, three
+of them at p<0.01 — and does *not* improve for frame, which already had that
+data. This is the joint training paying off.
+
+| Cell | n | Unified | Specialist | Δ | McNemar p |
+| --- | ---: | ---: | ---: | ---: | ---: |
+| frame / heico | 2125 | 0.7995 | 0.8034 | −0.0040 | 0.51 |
+| frame / lapchole | 1296 | 0.7441 | 0.7688 | −0.0246 | 0.080 |
+| segment / heico | 1383 | 0.8926 | 0.8609 | **+0.0317** | **9.2e-04** |
+| segment / lapchole | 1440 | 0.8596 | 0.8222 | **+0.0374** | **2.9e-05** |
+| procedure / heico | 374 | 0.7231 | 0.6585 | **+0.0646** | **0.0095** |
+| procedure / lapchole | 564 | 0.8098 | 0.7584 | **+0.0514** | **0.0022** |
+
+### 6.2 Procedure's coarse timestamps corrupt segment's fine ones
+
+`temporal_grounding` moves in **opposite directions** on the two tracks that have
+it — segment loses, procedure gains, both significantly. Segment's questions are
+answered at stride 25–30 and procedure's at 250–300, so the two tracks want
+different temporal resolutions out of the same weights; joint training settles
+nearer procedure's.
+
+| Cell | n | share of track | Unified | Specialist | Δ | McNemar p |
+| --- | ---: | ---: | ---: | ---: | ---: | ---: |
+| segment / heico | 1752 | 44% | 0.5342 | 0.6037 | **−0.0695** | **3.4e-11** |
+| segment / lapchole | 684 | 30% | 0.5855 | 0.6789 | **−0.0934** | **6.7e-04** |
+| procedure / heico | 795 | 40% | 0.1629 | 0.1162 | **+0.0467** | **6.1e-08** |
+| procedure / lapchole | 426 | 38% | 0.3040 | 0.2870 | +0.0169 | 0.13 |
+
+This is why the three tracks land where they do:
+
+- **Procedure gains on both axes** — objects *and* time — so it wins outright.
+- **Segment gains objects but loses time.** On LapChole object questions are 64%
+  of the split and temporal only 30%, so the two roughly cancel (net +0.006). On
+  HeiCo temporal is 44%, so the loss dominates (net −0.023). Same trade, different
+  question mix, opposite outcome.
+- **Frame has no temporal questions to lose and no object gain to make**, so it
+  ties. Its only movement is `object_aggregation` (counting) +0.020, p≈0.09–0.2 —
+  suggestive, not significant.
+
+(The bucket deltas are macro-over-video, so they do not linearly compose into the
+overall macro; the shares above explain the *direction*, not an exact
+decomposition.)
+
+## 7. Recommendation
 
 Ship **epoch 8** (`checkpoint-17184`) if a single 3-track model is wanted: it is
 the best or statistically tied-best checkpoint in five of six buckets, and it is
 where procedure peaks on both datasets.
 
-But a unified model is only the right call if one model for all three tracks has
-independent value (deployment simplicity, submission size). On score alone the
-better configuration is **specialists for frame and segment, unified for
-procedure** — that keeps segment's 0.7023 on HeiCo and takes procedure's
-+0.060/+0.037.
+Of the six track×dataset cells, only **three** differ significantly from the
+specialist: procedure wins both, segment/HeiCo loses. Frame is a tie on both
+datasets, so keeping the frame specialist buys nothing.
 
-## 7. Capability and answer-format breakdowns
+| Configuration | Models | Six-cell mean |
+| --- | ---: | ---: |
+| All specialists | 3 | 0.6128 |
+| All unified (epoch 8) | 1 | 0.6267 |
+| **Unified + segment specialist** | **2** | **0.6296** |
+
+**Segment is the only track where keeping a specialist is worth anything**
+(+0.0085 on the track mean, driven entirely by HeiCo). Going all-unified already
+beats all-specialists by +0.0139; adding back just the segment specialist
+recovers a further +0.0029 at the cost of a second model.
+
+If the temporal-resolution conflict in §6.2 can be fixed — e.g. conditioning on
+the track in the prompt, or per-track temporal tokenisation — a single unified
+model should be able to take segment's HeiCo score back and dominate everywhere.
+That is the highest-value follow-up this run points to.
+
+## 8. Capability and answer-format breakdowns
 
 Generated by `track-unified/lora-finetune/src/full_test_report.py`.
-### 7.1 Capability groups
+### 8.1 Capability groups
 
 #### frame / heico
 
@@ -278,7 +354,7 @@ Generated by `track-unified/lora-finetune/src/full_test_report.py`.
 | object_recognition | 564 | 0.7754 | 0.8098 | 0.8239 |
 | temporal_grounding | 426 | 0.3007 | 0.3040 | 0.2906 |
 
-### 7.2 Leaf capabilities
+### 8.2 Leaf capabilities
 
 #### frame / heico
 
@@ -377,7 +453,7 @@ Generated by `track-unified/lora-finetune/src/full_test_report.py`.
 | temporal_localization | 391 | 0.3013 | 0.3039 | 0.2911 |
 | temporal_ordering | 5 | 0.4000 | 0.4000 | 0.4000 |
 
-### 7.3 Answer formats
+### 8.3 Answer formats
 
 #### frame / heico
 
