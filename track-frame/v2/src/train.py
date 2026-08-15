@@ -37,10 +37,14 @@ from src.paths import OS_MODELS_DIR  # noqa: E402
 RANK = int(os.environ.get("RANK", "0"))
 IS_MAIN = RANK == 0
 
+# force=True because importing ``src`` pulls in ``focus``, which has already
+# configured the root logger by this point — without it basicConfig is a no-op
+# and every rank logs at INFO.
 logging.basicConfig(
     level=logging.INFO if IS_MAIN else logging.WARNING,
     format=f"%(asctime)s %(levelname)s [r{RANK}] %(message)s",
     datefmt="%H:%M:%S",
+    force=True,
 )
 log = logging.getLogger("train")
 
