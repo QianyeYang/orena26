@@ -59,6 +59,21 @@ logging.basicConfig(
 )
 log = logging.getLogger("export")
 
+#: Shard size for every ``save_pretrained`` here.
+#:
+#: Without this, ``save_pretrained`` wrote the whole 27B into ONE 35 GiB
+#: ``model.safetensors``. ``transformers`` then mmaps that file whole
+#: (``quantizer_torchao.set_metadata`` -> ``safe_open``), which needs 35 GiB of
+#: address space in one allocation. That is fine on a cluster node and fails on
+#: a memory-capped submission container:
+#:
+#:     RuntimeError: unable to mmap 37613882728 bytes from
+#:     </opt/app/resources/model/model.safetensors>: Cannot allocate memory (12)
+#:
+#: Shards are opened one at a time, so sharding caps peak mapped bytes at one
+#: shard instead of the entire model.
+MAX_SHARD_SIZE = "4GB"
+
 
 def _abs(repo: Path, p: str) -> Path:
     q = Path(p)
@@ -101,7 +116,7 @@ def merge(base: Path, adapter: Path, out: Path, dtype: str, trust_remote_code: b
 
     t = time.time()
     out.mkdir(parents=True, exist_ok=True)
-    model.save_pretrained(str(out), safe_serialization=True)
+    model.save_pretrained(str(out), safe_serialization=True, max_shard_size=MAX_SHARD_SIZE)
     _copy_processor(base, out, trust_remote_code)
     log.info("merged model written to %s in %.1fs", out, time.time() - t)
     del model
@@ -135,12 +150,12 @@ def quantize(src: Path, out: Path, base: Path, dtype: str, trust_remote_code: bo
     out.mkdir(parents=True, exist_ok=True)
     t = time.time()
     try:
-        model.save_pretrained(str(out), safe_serialization=True)
+        model.save_pretrained(str(out), safe_serialization=True, max_shard_size=MAX_SHARD_SIZE)
     except Exception as err:  # torchao tensor subclasses are not always safetensors-able
         log.warning("safetensors save failed (%s); retrying with torch.save format", err)
         for stale in out.glob("*.safetensors"):
             stale.unlink()
-        model.save_pretrained(str(out), safe_serialization=False)
+        model.save_pretrained(str(out), safe_serialization=False, max_shard_size=MAX_SHARD_SIZE)
     _copy_processor(base, out, trust_remote_code)
     log.info("quantized model written to %s in %.1fs", out, time.time() - t)
 
