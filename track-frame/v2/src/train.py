@@ -18,6 +18,7 @@ from __future__ import annotations
 import argparse
 import json
 import logging
+import os
 from pathlib import Path
 import sys
 
@@ -30,8 +31,16 @@ sys.path.insert(0, str(HERE))
 
 from src.paths import OS_MODELS_DIR  # noqa: E402
 
+#: Under ``torchrun`` every rank runs this file. Rank 0 does the talking and the
+#: metadata writing; the others stay quiet so the log stays readable and two
+#: processes never write ``train_meta.json`` at once. Unset when run directly.
+RANK = int(os.environ.get("RANK", "0"))
+IS_MAIN = RANK == 0
+
 logging.basicConfig(
-    level=logging.INFO, format="%(asctime)s %(levelname)s %(message)s", datefmt="%H:%M:%S"
+    level=logging.INFO if IS_MAIN else logging.WARNING,
+    format=f"%(asctime)s %(levelname)s [r{RANK}] %(message)s",
+    datefmt="%H:%M:%S",
 )
 log = logging.getLogger("train")
 
@@ -203,15 +212,23 @@ def main() -> None:
         seed=t.get("seed", 42),
         optim=t.get("optim", "adamw_torch_fused"),
         tf32=t.get("tf32", True),
+        # Only the LoRA adapters and visual.merger carry grads, and every batch
+        # exercises all of them, so DDP does not need the unused-parameter scan.
+        ddp_find_unused_parameters=t.get("ddp_find_unused_parameters", False),
     )
-    (out / "train_meta.json").write_text(
-        json.dumps(
-            {"base": base, "config": cfg, "targets": targets, "excluded_paths": len(exclude_full),
-             "epochs": epochs, "datasets": datasets, "n_examples": len(ds),
-             "n_rows": len(ds.examples), "counts": D.count_distribution(ds)},
-            indent=2, default=str,
+    if IS_MAIN:
+        (out / "train_meta.json").write_text(
+            json.dumps(
+                {"base": base, "config": cfg, "targets": targets,
+                 "excluded_paths": len(exclude_full), "epochs": epochs, "datasets": datasets,
+                 "n_examples": len(ds), "n_rows": len(ds.examples),
+                 "world_size": int(os.environ.get("WORLD_SIZE", "1")),
+                 "effective_batch": (t["per_device_batch_size"] * t["grad_accum"]
+                                     * int(os.environ.get("WORLD_SIZE", "1"))),
+                 "counts": D.count_distribution(ds)},
+                indent=2, default=str,
+            )
         )
-    )
 
     trainer = Trainer(model=model, args=targs, train_dataset=ds, data_collator=collator)
     trainer.train(resume_from_checkpoint=a.resume)

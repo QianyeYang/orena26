@@ -1,0 +1,73 @@
+# FRAME LoRA SFT on Qwen3.8-27B — the Qwen3.6-27B recipe with new base weights.
+#
+# Deliberately a weights swap and nothing else, so the comparison against
+# `Qwen3.6-27B-frame-v1prompt` (job 3905, 30 epochs, 42h44m on one H200; see
+# result-summary/frame/27b-epoch-sweep.md) isolates the base model. The two
+# configs are architecturally identical — Qwen3_5ForConditionalGeneration, 64
+# text layers at 5,120 wide, the same 27-block/1,152-wide vision tower — so
+# every LoRA and data setting below is copied verbatim from that run.
+#
+# Trains on two B200s (183 GB each) under torchrun DDP.
+base_path: os-models/Qwen3.8-27B
+run_name: Qwen3.8-27B-frame-v1prompt
+model_name: Qwen3.8-27B-frame-v1prompt-lora
+datasets: [heico, lapchole]
+dtype: bfloat16
+attn_implementation: sdpa
+trust_remote_code: false
+
+# Thinking stays off because it is off at inference: a 20-question batch allows
+# ~6-9 s per question after model load, and reasoning cost 12.0 s per question
+# while returning truncated reasoning instead of an answer. Train and test must
+# render the same chat template.
+enable_thinking: false
+prompt_strategy: direct
+
+# 602,112 px. The extracted frames are 960x540 and 720x576, so they already fit
+# under this cap without downscaling.
+min_pixels: null
+max_pixels: 602112
+
+lora:
+  # r=32 rather than the 16 used on the 4B: this model is 5,120 wide with 64
+  # layers, so the same rank is a much thinner adapter here.
+  r: 32
+  alpha: 64
+  dropout: 0.05
+  # null => every nn.Linear leaf outside `exclude_name_contains`, which covers
+  # the vision tower as well as the language model.
+  target_modules: null
+  exclude_name_contains: [lm_head, embed_tokens, mtp]
+  modules_to_save: null          # auto-detects visual.merger
+
+train:
+  # 30, matching the Qwen3.6 run this is compared against. Note that sweep found
+  # epochs 8/16/24/30 statistically inseparable (0.6548/0.6447/0.6597/0.6519,
+  # SE ~0.014), so 30 is here to reproduce the protocol and give every epoch as a
+  # selection candidate — not because late epochs were shown to be better.
+  epochs: 30
+  per_device_batch_size: 4
+  # 2 rather than the 4 the single-GPU run used: with WORLD_SIZE=2 this keeps the
+  # effective batch at 16 and the step count per epoch at 964, so checkpoint
+  # numbers line up 1:1 with Qwen3.6-27B-frame-v1prompt (epoch 30 = step 28920).
+  grad_accum: 2
+  learning_rate: 1.0e-4
+  lr_scheduler: cosine
+  warmup_ratio: 0.03
+  weight_decay: 0.0
+  max_grad_norm: 1.0
+  logging_steps: 10
+  save_strategy: epoch
+  dataloader_num_workers: 8
+  dataloader_pin_memory: false
+  dataloader_persistent_workers: true
+  dataloader_prefetch_factor: 2
+  optim: adamw_torch_fused
+  tf32: true
+  seed: 42
+  # Counting is ~38% of the score and our worst format. Counts 1-11 occur
+  # 669/597/471/368/248/142/63/45/14/7/4 times; inverse-sqrt replication capped
+  # at 4x lifts the tail without the 167x oversampling full inverse-frequency
+  # would demand: 13,748 -> 15,420 rows.
+  count_balance_power: 0.5
+  count_balance_cap: 4
