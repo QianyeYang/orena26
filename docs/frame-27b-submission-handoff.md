@@ -119,6 +119,48 @@ Options, in order of preference:
 
 Do not mark the bundle GPU-tested on a V100 result.
 
+## 5b. POST-MORTEM: the first submission failed on mmap, 2026-08-15
+
+The bundle uploaded on 2026-08-13 failed on Grand Challenge with *"The algorithm
+failed on one or more cases"*. The container died before answering a single
+question:
+
+```
+RuntimeError: unable to mmap 37613882728 bytes from
+  </opt/app/resources/model/model.safetensors>: Cannot allocate memory (12)
+```
+
+**Cause.** `export_merged.py` called `save_pretrained` without `max_shard_size`.
+transformers' default is ~50 GB, so a 35.03 GiB quantized model was written as
+**one** `model.safetensors` — while the 51 GiB *merged* model, being over the
+default, was correctly split into two. transformers mmaps a checkpoint file
+whole (`quantizer_torchao.set_metadata` → `safe_open`), so loading needed 35 GiB
+of address space in a single allocation. A cluster node has the host RAM for
+that; a memory-capped submission container does not.
+
+**Why the smoke test missed it.** Apptainer job 4446 ran on an A100 node with no
+meaningful memory cap and passed. Nothing about the model, the GPU, the
+quantization or the latency was ever wrong — the bundle simply could not be
+*opened* under a RAM limit. A GPU-memory-clean, accuracy-clean artifact can
+still be unloadable.
+
+**Fix.** `export_merged.py` now passes `max_shard_size="4GB"` on every
+`save_pretrained`. Re-exporting via `scripts/requantize.slurm` (quantize-only,
+reusing the merged model already on disk) gives **10 shards, largest 3.95 GiB**,
+same 35.03 GiB total, same 192/607 quantized Linears. Shards are opened one at a
+time, so peak mapped bytes drops ~10x.
+
+**Second defect found and fixed at the same time.** `inference.py` had no
+warmup, so the first `generate()` paid CUDA kernel autotune on a *scored*
+question: 5.55 s against 0.90 s steady, versus a stated FRAME budget of **5 s
+per question**. It now runs one discarded warmup generate immediately after load.
+This was not what broke the submission, but it would have broken the next one.
+
+**Still unproven.** Sharding is verified to load under Apptainer, not under
+Grand Challenge's specific memory cap. If GC's limit is tighter than one ~4 GiB
+mapping plus overhead, shrink `MAX_SHARD_SIZE` further. Use a GC *try-out* run to
+confirm before spending one of the 10 submission attempts.
+
 ## 6. The setup budget is the real risk
 
 The submission allows **120 s of setup**, and this is the likeliest place the
@@ -165,6 +207,11 @@ normalisation in `src/adapter.py`.
 
 ## 10. Acceptance checks before shipping
 
+0. **The model directory is sharded** — many `model-000NN-of-000NN.safetensors`
+   plus `model.safetensors.index.json`, no single file over ~4 GiB. One
+   monolithic `model.safetensors` is what killed the 2026-08-13 submission (§5b).
+   Check with `ls -la resources/model/` before anything else; it is the cheapest
+   check here and the one that actually failed.
 1. `count_quantized_linears` reports **192/607**. An exclusion list that matches
    nothing once ran a whole 1,203-row benchmark unnoticed.
 2. Weights on GPU ≈ **35 GiB**; peak under 48 GB with `--mem-fraction 0.313`.
