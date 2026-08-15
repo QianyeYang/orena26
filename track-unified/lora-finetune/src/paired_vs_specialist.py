@@ -18,11 +18,11 @@ For each (track, dataset, epoch) this reports:
 from __future__ import annotations
 
 import argparse
+import math
 from pathlib import Path
 
 import numpy as np
 import pandas as pd
-from scipy import stats
 
 REPO = Path(__file__).resolve().parents[3]
 RUN = REPO / "track-unified/lora-finetune/logs/Qwen3-VL-4B-Instruct-unified-both-official"
@@ -49,6 +49,63 @@ SPECIALISTS = {
     ),
 }
 DATASETS = ("heico", "lapchole")
+
+
+def _norm_sf(z: float) -> float:
+    """Upper tail of the standard normal."""
+    return 0.5 * math.erfc(z / math.sqrt(2.0))
+
+
+def wilcoxon_p(diffs: np.ndarray) -> float:
+    """Two-sided Wilcoxon signed-rank p-value, normal approximation.
+
+    Zeros are handled like scipy's `zero_method="zsplit"`: they are ranked with
+    everything else and their rank mass is split evenly between the two sums.
+    Ties in |diff| get average ranks and the variance is tie-corrected.
+    """
+    diffs = np.asarray(diffs, dtype=float)
+    n = diffs.size
+    if n == 0 or np.allclose(diffs, 0.0):
+        return 1.0
+
+    absolute = np.abs(diffs)
+    ranks = pd.Series(absolute).rank(method="average").to_numpy()
+    zero_mass = 0.5 * ranks[diffs == 0].sum()
+    r_plus = ranks[diffs > 0].sum() + zero_mass
+    r_minus = ranks[diffs < 0].sum() + zero_mass
+
+    statistic = min(r_plus, r_minus)
+    mean = n * (n + 1) / 4.0
+    var = n * (n + 1) * (2 * n + 1) / 24.0
+    _, tie_counts = np.unique(absolute, return_counts=True)
+    var -= (tie_counts**3 - tie_counts).sum() / 48.0
+    if var <= 0:
+        return 1.0
+
+    z = (statistic - mean) / math.sqrt(var)
+    return min(1.0, 2.0 * _norm_sf(abs(z)))
+
+
+def binom_p(b: int, c: int) -> float:
+    """Exact two-sided binomial test of b successes in b+c trials at p=0.5.
+
+    Symmetric around n/2, so the two-sided p is just twice the lower tail.
+    Summed in log space so large n does not overflow.
+    """
+    n = b + c
+    if n == 0:
+        return 1.0
+    k = min(b, c)
+    log_terms = [
+        math.lgamma(n + 1)
+        - math.lgamma(i + 1)
+        - math.lgamma(n - i + 1)
+        - n * math.log(2.0)
+        for i in range(k + 1)
+    ]
+    peak = max(log_terms)
+    tail = math.exp(peak) * sum(math.exp(term - peak) for term in log_terms)
+    return min(1.0, 2.0 * tail)
 
 
 def load(path: Path, column: str) -> pd.DataFrame:
@@ -111,15 +168,12 @@ def main() -> None:
 
                 per_video = merged.groupby("video_u")[["correct_u", "correct_s"]].mean()
                 diffs = per_video["correct_u"] - per_video["correct_s"]
-                if np.allclose(diffs, 0):
-                    w_p = 1.0
-                else:
-                    w_p = float(stats.wilcoxon(diffs, zero_method="zsplit").pvalue)
+                w_p = wilcoxon_p(diffs.to_numpy())
 
                 # McNemar over questions: b = unified right / specialist wrong.
                 b = int(((merged["correct_u"] == 1) & (merged["correct_s"] == 0)).sum())
                 c = int(((merged["correct_u"] == 0) & (merged["correct_s"] == 1)).sum())
-                m_p = float(stats.binomtest(b, b + c, 0.5).pvalue) if b + c else 1.0
+                m_p = binom_p(b, c)
 
                 print(
                     f"{track + '/' + dataset:<22}{epoch:>6}{uni_macro:>9.4f}"
