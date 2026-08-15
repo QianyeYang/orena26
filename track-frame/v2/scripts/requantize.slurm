@@ -5,7 +5,7 @@
 #SBATCH --ntasks=1
 #SBATCH --cpus-per-task=12
 #SBATCH --gres=gpu:1
-#SBATCH --mem=200G
+#SBATCH --mem=150G
 #SBATCH --time=4:00:00
 #SBATCH --output=/datasets/engs2732/orena/track-frame/v2/logs/requant-%j.log
 #SBATCH --error=/datasets/engs2732/orena/track-frame/v2/logs/requant-%j.log
