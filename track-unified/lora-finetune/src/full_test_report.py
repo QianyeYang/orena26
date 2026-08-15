@@ -55,6 +55,39 @@ def delta(value: float | None, base: float) -> str:
     return f"{value - base:+.4f}"
 
 
+def breakdown(
+    summaries: dict,
+    epochs: list[int],
+    number: str,
+    heading: str,
+    level: str,
+) -> None:
+    """Print one per-track/per-dataset table for a single `summary.csv` level."""
+    print(f"## {number}. {heading}\n")
+    for track in TRACKS:
+        for dataset in DATASETS:
+            frames = []
+            for epoch in epochs:
+                summary = summaries.get((epoch, track, dataset))
+                if summary is None:
+                    continue
+                sub = summary[summary["level"] == level][["name", "accuracy", "count"]]
+                frames.append(sub.set_index("name").rename(columns={"accuracy": f"epoch {epoch}"}))
+            if not frames:
+                continue
+            merged = frames[0][["count"]].join([f.drop(columns=["count"]) for f in frames])
+            print(f"### {track} / {dataset}\n")
+            print(f"| {level} | n | " + " | ".join(f"epoch {e}" for e in epochs) + " |")
+            print("| --- | ---: | " + " | ".join("---:" for _ in epochs) + " |")
+            for name, row in merged.iterrows():
+                cells = " | ".join(
+                    fmt(row.get(f"epoch {e}")) if pd.notna(row.get(f"epoch {e}")) else "—"
+                    for e in epochs
+                )
+                print(f"| {name} | {int(row['count'])} | {cells} |")
+            print()
+
+
 def main() -> None:
     ap = argparse.ArgumentParser(description=__doc__)
     ap.add_argument("--run", required=True, type=Path, help="training run directory")
@@ -130,53 +163,9 @@ def main() -> None:
         print(f"| {track} | " + " | ".join(cells) + f" | {base:.4f} |")
     print()
 
-    print("## 3. Capability breakdown\n")
-    for track in TRACKS:
-        for dataset in DATASETS:
-            frames = []
-            for epoch in args.epochs:
-                summary = summaries.get((epoch, track, dataset))
-                if summary is None:
-                    continue
-                sub = summary[summary["level"] == "group"][["name", "accuracy", "count"]]
-                frames.append(sub.set_index("name").rename(columns={"accuracy": f"epoch {epoch}"}))
-            if not frames:
-                continue
-            merged = frames[0][["count"]].join([f.drop(columns=["count"]) for f in frames])
-            print(f"### {track} / {dataset}\n")
-            print("| group | n | " + " | ".join(f"epoch {e}" for e in args.epochs) + " |")
-            print("| --- | ---: | " + " | ".join("---:" for _ in args.epochs) + " |")
-            for name, row in merged.iterrows():
-                cells = " | ".join(
-                    fmt(row.get(f"epoch {e}")) if pd.notna(row.get(f"epoch {e}")) else "—"
-                    for e in args.epochs
-                )
-                print(f"| {name} | {int(row['count'])} | {cells} |")
-            print()
-
-    print("## 4. Answer-format breakdown\n")
-    for track in TRACKS:
-        for dataset in DATASETS:
-            frames = []
-            for epoch in args.epochs:
-                summary = summaries.get((epoch, track, dataset))
-                if summary is None:
-                    continue
-                sub = summary[summary["level"] == "answer_format"][["name", "accuracy", "count"]]
-                frames.append(sub.set_index("name").rename(columns={"accuracy": f"epoch {epoch}"}))
-            if not frames:
-                continue
-            merged = frames[0][["count"]].join([f.drop(columns=["count"]) for f in frames])
-            print(f"### {track} / {dataset}\n")
-            print("| answer_format | n | " + " | ".join(f"epoch {e}" for e in args.epochs) + " |")
-            print("| --- | ---: | " + " | ".join("---:" for _ in args.epochs) + " |")
-            for name, row in merged.iterrows():
-                cells = " | ".join(
-                    fmt(row.get(f"epoch {e}")) if pd.notna(row.get(f"epoch {e}")) else "—"
-                    for e in args.epochs
-                )
-                print(f"| {name} | {int(row['count'])} | {cells} |")
-            print()
+    breakdown(summaries, args.epochs, "3", "Capability breakdown", "group")
+    breakdown(summaries, args.epochs, "4", "Leaf-capability breakdown", "leaf")
+    breakdown(summaries, args.epochs, "5", "Answer-format breakdown", "answer_format")
 
 
 if __name__ == "__main__":
