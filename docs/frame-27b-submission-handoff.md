@@ -161,6 +161,37 @@ Grand Challenge's specific memory cap. If GC's limit is tighter than one ~4 GiB
 mapping plus overhead, shrink `MAX_SHARD_SIZE` further. Use a GC *try-out* run to
 confirm before spending one of the 10 submission attempts.
 
+## 5c. The reshard is confirmed under an actual memory cap, 2026-08-15
+
+The rebuilt image was produced on the `pt8` Docker host and the mmap failure was
+reproduced-in-reverse there: **a memory-capped container is exactly what
+Apptainer could not give us**, and Docker's `--memory` supplies it.
+
+| container limit | what ran | result |
+| --- | --- | --- |
+| `--memory=6g` | `safe_open` every shard, take all 1,568 tensor handles | 10/10 mapped, peak RSS **0.50 GiB**, exit 0 |
+| `--memory=4g` | additionally materialize every tensor | **35.03 GiB** read, largest single tensor 2.368 GiB, peak RSS **5.23 GiB**, no OOM kill, exit 0 |
+
+The monolith needed one 37.6 GB mapping and died at the syscall. The sharded
+build completes the same path under a **4 GiB** cgroup limit. Peak RSS may exceed
+the cap without an OOM kill because the excess is clean file-backed page cache,
+which the kernel reclaims on demand — a single 37.6 GB `mmap` never gets that
+far. This is the strongest available evidence short of GC itself.
+
+Also verified in-image: all **22** checksums re-checked inside the container
+(byte-identical to the civo bundle), 10 shards and no `model.safetensors`,
+`quant_method: torchao`, the three env defaults intact, and no dataset, cache,
+credential, or source-cluster path in any layer.
+
+**A Docker host with 32 GB Volta GPUs cannot GPU-test any image on this base.**
+`torch.cuda.get_arch_list()` for the pinned `pytorch/pytorch:2.11.0-cuda12.8`
+base is `['sm_75','sm_80','sm_86','sm_90','sm_100','sm_120']`; a GV100/V100 is
+`sm_70`. A 64x64 matmul fails with `CUDA error: no kernel image is available for
+execution on the device` in **both** bf16 and fp16. So the "test-only FP16 across
+both 32 GB GPUs" escape hatch is dead twice over — once for the torchao reason in
+§4, and once because no kernel exists at all. Do not plan a GPU smoke on that
+host for any future large-model submission; use civo.
+
 ## 6. The setup budget is the real risk
 
 The submission allows **120 s of setup**, and this is the likeliest place the
@@ -169,14 +200,35 @@ whole thing fails.
 | | 4B (shipped) | 27B (this) |
 | --- | ---: | ---: |
 | model bytes | 8.3 GB | **35.05 GiB** |
-| model-ready time | 99.60 s | **unmeasured cold** |
+| model-ready time | 99.60 s | **355.81 s cold, over civo NFS** |
 | warm load (cluster) | — | 15.0 s |
 
 The 4B used 99.6 s of a 120 s budget for a *quarter* of the bytes. The 15.0 s
-figure here is off a warm NFS page cache on an h200 and is not evidence about
-the submission host. **Measure a cold load explicitly** before trusting this —
-that number decides whether the 27B is submittable at all, and it is the one
-piece of evidence nobody has yet.
+figure is off a warm NFS page cache on an h200 and is not evidence about the
+submission host.
+
+**The cold load has now been measured and it is 355.81 s — roughly 3x the stated
+budget.** Decomposed against civo's storage:
+
+| component | seconds |
+| --- | ---: |
+| vendor extract + imports | ~19 |
+| irreducible bytes (35 GiB at 355 MB/s sequential) | ~106 |
+| mmap demand-fault overhead over NFS | ~215 |
+| deserialize + host-to-device | ~15 |
+
+The effective read rate through mmap was 110 MB/s against 355 MB/s for a plain
+sequential read of the same files — a **3.2x penalty that is a property of
+demand-faulting over NFS, not of the model**. Grand Challenge unpacks the image
+to the node's local disk, so the 215 s term should largely disappear there and
+the floor is the ~106 s of bytes plus overhead. That is still uncomfortably close
+to 120 s and it is *inferred*, not measured on GC.
+
+Do not pre-warm the page cache to hide this: on a cgroup-limited container the
+page cache counts toward the memory limit, which is how we got the original
+`ENOMEM`. If the try-out run shows a setup timeout, the honest levers are a
+smaller model, a faster storage path, or asking the organisers what the setup
+budget actually enforces.
 
 ## 7. Batch size
 
@@ -215,7 +267,14 @@ normalisation in `src/adapter.py`.
 1. `count_quantized_linears` reports **192/607**. An exclusion list that matches
    nothing once ran a whole 1,203-row benchmark unnoticed.
 2. Weights on GPU ≈ **35 GiB**; peak under 48 GB with `--mem-fraction 0.313`.
-3. **Cold** model-ready time under 120 s (§6).
+3. **Cold** model-ready time under 120 s (§6). **Currently failing on civo:
+   355.81 s.** Most of that is an NFS demand-fault penalty that should not exist
+   on GC's local disk, but this is the one acceptance item still unmet on
+   measured evidence, so treat the try-out run as testing *this* as much as the
+   mmap fix.
 4. Smoke fixture returns 3/3 structurally valid answers, no traceback.
 5. Accuracy on the 1,203 stratified rows reproduces **0.6571** (already verified
    once, `bench-4414.log` / `logs/27b-ep24-int8mlp-merged`).
+6. **The model loads under a memory cap** — run the image with `--memory=4g` and
+   materialize every tensor (§5c). Apptainer cannot test this; Docker can, and it
+   is the check that would have caught the 2026-08-13 failure in minutes.
