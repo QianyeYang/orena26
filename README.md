@@ -422,27 +422,3 @@ Archives saved for the final bundles (the timestamp is the image creation time,
 UTC): `focus-frame-qwen35-4b-anneal-s2428_2026-09-03_06-33-20.tar.gz` (FRAME) and
 `focus-video-qwen35-4b-unified-ep8_2026-08-30_08-02-11.tar.gz` (SEGMENT and
 PROCEDURE).
-
-## 8. Gotchas
-
-- **Matched train/test rule.** Prompt, frame plan and resize geometry must be
-  identical in training and in `inference.py`; the source of truth is
-  `src/video_geometry.py`.
-- **Frame prompt difference.** FRAME rows train on the archived 2,861-char system
-  prompt (`e50a185f…`); at inference the container keeps its instruction prefix
-  and substitutes the platform's runtime `FO_definitions.json`, which adds one
-  class (Absorbable Hemostatic Agent). The tail of the system prompt therefore
-  differs between training and test for FRAME. Video rows already use the runtime
-  taxonomy.
-- **Stop tokens.** The packaged Qwen3.5-4B has no `generation_config.json`, so
-  raw HF `generate()` does not stop at `<|im_end|>`. The video `inference.py`
-  passes the stop ids explicitly; do the same in any new script that calls
-  `generate()` directly (the frame path gets them from the ms-swift template).
-- **Never edit the vendored ms-swift.** Timestamp handling is patched at runtime
-  by the plugin instead.
-- **Data-bound training.** Check `nvidia-smi` utilisation and CPUs per GPU before
-  blaming the model for slow steps.
-- **Epochs are not comparable across runs** (an epoch here is 50,000 rows and a
-  video row costs 10–30× a frame row); compare optimizer steps.
-- **`sbatch --export` with spaces.** `--export=ALL,VAR="a b c"` mangles the job
-  environment when the value contains spaces; set variables in a wrapper script.
